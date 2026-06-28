@@ -85,10 +85,14 @@ const DEFAULT_ICON = "#cfe0f5";
 const PRECIP_BLUE = "#54b4ff";
 const iconColorFor = (c) => CONDITION_COLORS[c] || DEFAULT_ICON;
 
-// Probability of precipitation -> short "NN%" string, or "" when absent/zero.
-const popText = (f) => {
+// Probability of precipitation. Returns null when absent/zero, otherwise the
+// "NN%" text plus a `low` flag (< 20%) so unlikely rain can be greyed out
+// while meaningful chances stay a bold blue.
+const POP_LOW_THRESHOLD = 20;
+const popInfo = (f) => {
   const p = f?.precipitation_probability;
-  return p === null || p === undefined || isNaN(p) || p <= 0 ? "" : `${Math.round(p)}%`;
+  if (p === null || p === undefined || isNaN(p) || p <= 0) return null;
+  return { text: `${Math.round(p)}%`, low: p < POP_LOW_THRESHOLD };
 };
 
 // Forecast humidity -> "NN%" string, or "" when the integration doesn't supply it.
@@ -150,8 +154,14 @@ class GlanceWeatherCard extends HTMLElement {
   }
 
   // Let Sections (grid) dashboards resize the card freely, with sensible bounds.
+  // getGridOptions is the current API; getLayoutOptions is the older fallback
+  // so resizing works across HA versions.
   getGridOptions() {
-    return { rows: 4, columns: 6, min_rows: 3, min_columns: 4 };
+    return { rows: 4, columns: 6, min_rows: 3, max_rows: 10, min_columns: 4, max_columns: 12 };
+  }
+
+  getLayoutOptions() {
+    return { grid_columns: 6, grid_rows: 4, grid_min_columns: 4, grid_min_rows: 3 };
   }
 
   async _subscribeForecasts() {
@@ -258,6 +268,7 @@ class GlanceWeatherCard extends HTMLElement {
         .hero .hum { opacity: 0.85; }
         .hero .hum ha-icon, .hero .pcp ha-icon { --mdc-icon-size: 14px; }
         .hero .pcp { color: ${PRECIP_BLUE}; font-weight: 600; }
+        .hero .pcp.low { color: #8a95a3; font-weight: 500; opacity: 0.85; }
         .hero .pcp.hidden { display: none; }
         .spacer { flex: 1 1 auto; }
         .label {
@@ -277,7 +288,12 @@ class GlanceWeatherCard extends HTMLElement {
         .cell .dh { font-size: 9px; color: #7fd0ff; opacity: 0.9; display: flex; align-items: center; gap: 2px; margin-top: 1px; }
         .cell .dh ha-icon { --mdc-icon-size: 10px; color: #7fd0ff; margin: 0; }
         .cell .dh.hidden { display: none; }
+        /* Precip chance: bold blue when likely; very grey when < 20%. */
         .cell .pop { font-size: 9px; font-weight: 600; line-height: 1.2; color: ${PRECIP_BLUE}; min-height: 11px; }
+        .cell .pop.low { color: #5d6b7a; font-weight: 500; opacity: 0.65; }
+        .cell .pop.rain { display: flex; align-items: center; gap: 2px; margin-top: 1px; }
+        .cell .pop.rain ha-icon { --mdc-icon-size: 10px; color: inherit; margin: 0; }
+        .cell .pop.hidden { display: none; }
         .unit { font-size: 0.55em; opacity: 0.8; vertical-align: top; }
       </style>
       <div class="card">
@@ -329,11 +345,12 @@ class GlanceWeatherCard extends HTMLElement {
 
     // Current precip chance: prefer the nearest hourly forecast, fall back to today's daily.
     const pcpSource = (this._forecasts.hourly || [])[0] || (this._forecasts.daily || [])[0];
-    const pcp = popText(pcpSource);
+    const pcp = popInfo(pcpSource);
     const pcpEl = root.querySelector(".pcp");
     if (pcp) {
       pcpEl.classList.remove("hidden");
-      root.querySelector(".pcpval").textContent = pcp;
+      pcpEl.classList.toggle("low", pcp.low);
+      root.querySelector(".pcpval").textContent = pcp.text;
     } else {
       pcpEl.classList.add("hidden");
     }
@@ -341,15 +358,16 @@ class GlanceWeatherCard extends HTMLElement {
     // ---- Hourly ----
     const hourly = (this._forecasts.hourly || []).slice(0, this._hourlyCount);
     root.querySelector(".row.hourly").innerHTML = hourly
-      .map(
-        (f) => `
+      .map((f) => {
+        const pi = popInfo(f);
+        return `
         <div class="cell">
           <span class="t1">${this._fmtHour(f.datetime)}</span>
           <ha-icon icon="${iconFor(f.condition)}" style="color:${iconColorFor(f.condition)}"></ha-icon>
           <span class="t2">${this._round(f.temperature)}°</span>
-          <span class="pop">${popText(f)}</span>
-        </div>`
-      )
+          <span class="pop${pi && pi.low ? " low" : ""}">${pi ? pi.text : ""}</span>
+        </div>`;
+      })
       .join("");
 
     // ---- Daily ----
@@ -357,6 +375,7 @@ class GlanceWeatherCard extends HTMLElement {
     root.querySelector(".row.daily").innerHTML = daily
       .map(
         (f, i) => {
+          const pi = popInfo(f);
           const rh = humText(f);
           return `
         <div class="cell">
@@ -364,6 +383,7 @@ class GlanceWeatherCard extends HTMLElement {
           <ha-icon icon="${iconFor(f.condition)}" style="color:${iconColorFor(f.condition)}"></ha-icon>
           <span class="t2">${this._round(f.temperature)}°</span>
           <span class="lo">${this._round(f.templow)}°</span>
+          <span class="pop rain${pi ? (pi.low ? " low" : "") : " hidden"}"><ha-icon icon="mdi:weather-pouring"></ha-icon>${pi ? pi.text : ""}</span>
           <span class="dh${rh ? "" : " hidden"}"><ha-icon icon="mdi:water-percent"></ha-icon>${rh}</span>
         </div>`;
         }
