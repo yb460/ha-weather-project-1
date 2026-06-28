@@ -182,7 +182,7 @@ class GlanceWeatherCard extends HTMLElement {
           padding: 8px 9px;
           display: flex;
           flex-direction: column;
-          gap: 5px;
+          gap: 6px;
           overflow: hidden;
           border-radius: 14px;
           color: var(--primary-text-color, #e9eef5);
@@ -196,7 +196,7 @@ class GlanceWeatherCard extends HTMLElement {
           display: flex;
           align-items: center;
           gap: 10px;
-          height: 56px;
+          height: 52px;
           flex: 0 0 auto;
         }
         .hero .big-icon { --mdc-icon-size: 44px; color: #cfe0f5; flex: 0 0 auto; }
@@ -211,16 +211,16 @@ class GlanceWeatherCard extends HTMLElement {
         .spacer { flex: 1 1 auto; }
         .label {
           font-size: 9px; letter-spacing: 0.6px; text-transform: uppercase;
-          opacity: 0.55; margin: 1px 0 0;
+          opacity: 0.6; margin: 1px 0 0;
         }
         .row { display: grid; gap: 1px; flex: 0 0 auto; }
         .row.hourly { grid-template-columns: repeat(${this._hourlyCount}, 1fr); }
         .row.daily { grid-template-columns: repeat(${this._dailyCount}, 1fr); }
         .cell { display: flex; flex-direction: column; align-items: center; line-height: 1.15; }
-        .cell ha-icon { --mdc-icon-size: 16px; color: #cfe0f5; margin: 1px 0; }
-        .cell .t1 { font-size: 9px; opacity: 0.7; }
-        .cell .t2 { font-size: 9px; font-weight: 600; }
-        .cell .lo { font-size: 9px; opacity: 0.55; }
+        .cell ha-icon { --mdc-icon-size: 18px; color: #cfe0f5; margin: 1px 0; }
+        .cell .t1 { font-size: 10px; opacity: 0.8; }
+        .cell .t2 { font-size: 11px; font-weight: 600; }
+        .cell .lo { font-size: 10px; opacity: 0.72; }
         .unit { font-size: 0.55em; opacity: 0.8; vertical-align: top; }
       </style>
       <div class="card">
