@@ -14,20 +14,20 @@ on HA 2023.9+.
 
 ## Install
 
-1. Copy `www/glance-weather-card.js` into your Home Assistant `config/www/` folder
-   (so it lives at `config/www/glance-weather-card.js`, served as
-   `/local/glance-weather-card.js`).
+1. Copy `www/glanceweathercard.js` into your Home Assistant `config/www/` folder
+   (so it lives at `config/www/glanceweathercard.js`, served as
+   `/local/glanceweathercard.js`).
 
 2. Register it as a dashboard resource. **Settings → Dashboards → ⋮ → Resources →
    Add resource**:
-   - URL: `/local/glance-weather-card.js`
+   - URL: `/local/glanceweathercard.js`
    - Type: **JavaScript Module**
 
    (Or in YAML mode, add under `lovelace:`)
    ```yaml
    lovelace:
      resources:
-       - url: /local/glance-weather-card.js
+       - url: /local/glanceweathercard.js
          type: module
    ```
 
