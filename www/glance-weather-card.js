@@ -37,6 +37,31 @@ const CONDITION_ICONS = {
 
 const iconFor = (c) => CONDITION_ICONS[c] || "mdi:weather-cloudy";
 
+// HA condition states are single tokens (e.g. "partlycloudy"), so a plain
+// prettifier can't split them. Map to readable labels; fall back to a
+// generic title-case for anything unknown.
+const CONDITION_LABELS = {
+  "clear-night": "Clear",
+  cloudy: "Cloudy",
+  exceptional: "Exceptional",
+  fog: "Fog",
+  hail: "Hail",
+  lightning: "Lightning",
+  "lightning-rainy": "Thunderstorms",
+  partlycloudy: "Partly Cloudy",
+  pouring: "Pouring",
+  rainy: "Rainy",
+  snowy: "Snowy",
+  "snowy-rainy": "Sleet",
+  sunny: "Sunny",
+  windy: "Windy",
+  "windy-variant": "Windy",
+};
+
+const labelFor = (c) =>
+  CONDITION_LABELS[c] ||
+  (c ? c.replace(/-/g, " ").replace(/\b\w/g, (m) => m.toUpperCase()) : "");
+
 class GlanceWeatherCard extends HTMLElement {
   constructor() {
     super();
@@ -230,8 +255,7 @@ class GlanceWeatherCard extends HTMLElement {
     root.querySelector(".big-icon").setAttribute("icon", iconFor(st.state));
     root.querySelector(".temp").innerHTML =
       `${this._round(st.attributes.temperature)}<span class="unit">${unit}</span>`;
-    root.querySelector(".cond").textContent =
-      st.state ? st.state.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) : "";
+    root.querySelector(".cond").textContent = labelFor(st.state);
 
     let humidity = st.attributes.humidity;
     if (this.config.humidity_entity) {
