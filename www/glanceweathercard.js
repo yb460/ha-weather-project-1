@@ -62,6 +62,27 @@ const labelFor = (c) =>
   CONDITION_LABELS[c] ||
   (c ? c.replace(/-/g, " ").replace(/\b\w/g, (m) => m.toUpperCase()) : "");
 
+// Wet/stormy conditions get tinted blue so precipitation stands out from the
+// pale "dry" icons at a glance.
+const PRECIP_CONDITIONS = new Set([
+  "rainy",
+  "pouring",
+  "lightning-rainy",
+  "lightning",
+  "hail",
+  "snowy",
+  "snowy-rainy",
+]);
+const PRECIP_BLUE = "#54b4ff";
+const DRY_ICON = "#cfe0f5";
+const iconColorFor = (c) => (PRECIP_CONDITIONS.has(c) ? PRECIP_BLUE : DRY_ICON);
+
+// Probability of precipitation -> short "NN%" string, or "" when absent/zero.
+const popText = (f) => {
+  const p = f?.precipitation_probability;
+  return p === null || p === undefined || isNaN(p) || p <= 0 ? "" : `${Math.round(p)}%`;
+};
+
 class GlanceWeatherCard extends HTMLElement {
   constructor() {
     super();
@@ -182,7 +203,7 @@ class GlanceWeatherCard extends HTMLElement {
           padding: 8px 9px;
           display: flex;
           flex-direction: column;
-          gap: 6px;
+          gap: 5px;
           overflow: hidden;
           border-radius: 14px;
           /* Self-contained: the card background is always dark, so text uses a
@@ -199,18 +220,22 @@ class GlanceWeatherCard extends HTMLElement {
           display: flex;
           align-items: center;
           gap: 10px;
-          height: 52px;
+          height: 50px;
           flex: 0 0 auto;
         }
-        .hero .big-icon { --mdc-icon-size: 44px; color: #cfe0f5; flex: 0 0 auto; }
-        .hero .temp { font-size: 40px; font-weight: 600; line-height: 1; }
-        .hero .meta { display: flex; flex-direction: column; justify-content: center; min-width: 0; }
+        .hero .big-icon { --mdc-icon-size: 42px; color: #cfe0f5; flex: 0 0 auto; }
+        .hero .temp { font-size: 38px; font-weight: 600; line-height: 1; }
+        .hero .meta { display: flex; flex-direction: column; justify-content: center; gap: 3px; min-width: 0; }
         .hero .cond {
           font-size: 12px; font-weight: 500; line-height: 1.2;
           white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
         }
-        .hero .hum { font-size: 12px; opacity: 0.85; display: flex; align-items: center; gap: 3px; }
-        .hero .hum ha-icon { --mdc-icon-size: 14px; }
+        .hero .sub { display: flex; align-items: center; gap: 10px; }
+        .hero .hum, .hero .pcp { font-size: 12px; display: flex; align-items: center; gap: 3px; }
+        .hero .hum { opacity: 0.85; }
+        .hero .hum ha-icon, .hero .pcp ha-icon { --mdc-icon-size: 14px; }
+        .hero .pcp { color: ${PRECIP_BLUE}; font-weight: 600; }
+        .hero .pcp.hidden { display: none; }
         .spacer { flex: 1 1 auto; }
         .label {
           font-size: 9px; letter-spacing: 0.6px; text-transform: uppercase;
@@ -220,10 +245,11 @@ class GlanceWeatherCard extends HTMLElement {
         .row.hourly { grid-template-columns: repeat(${this._hourlyCount}, 1fr); }
         .row.daily { grid-template-columns: repeat(${this._dailyCount}, 1fr); }
         .cell { display: flex; flex-direction: column; align-items: center; line-height: 1.15; }
-        .cell ha-icon { --mdc-icon-size: 18px; color: #cfe0f5; margin: 1px 0; }
+        .cell ha-icon { --mdc-icon-size: 18px; color: ${DRY_ICON}; margin: 1px 0; }
         .cell .t1 { font-size: 10px; opacity: 0.8; }
         .cell .t2 { font-size: 11px; font-weight: 600; }
         .cell .lo { font-size: 10px; opacity: 0.72; }
+        .cell .pop { font-size: 9px; font-weight: 600; line-height: 1.2; color: ${PRECIP_BLUE}; min-height: 11px; }
         .unit { font-size: 0.55em; opacity: 0.8; vertical-align: top; }
       </style>
       <div class="card">
@@ -232,7 +258,10 @@ class GlanceWeatherCard extends HTMLElement {
           <div class="temp">–</div>
           <div class="meta">
             <div class="cond"></div>
-            <div class="hum"><ha-icon icon="mdi:water-percent"></ha-icon><span class="humval">–</span></div>
+            <div class="sub">
+              <span class="hum"><ha-icon icon="mdi:water-percent"></ha-icon><span class="humval">–</span></span>
+              <span class="pcp hidden"><ha-icon icon="mdi:weather-pouring"></ha-icon><span class="pcpval"></span></span>
+            </div>
           </div>
         </div>
         <div class="label">Next ${this._hourlyCount} hours</div>
@@ -255,7 +284,9 @@ class GlanceWeatherCard extends HTMLElement {
     const unit = st.attributes.temperature_unit || "°";
 
     // ---- Hero (current) ----
-    root.querySelector(".big-icon").setAttribute("icon", iconFor(st.state));
+    const heroIcon = root.querySelector(".big-icon");
+    heroIcon.setAttribute("icon", iconFor(st.state));
+    heroIcon.style.color = iconColorFor(st.state);
     root.querySelector(".temp").innerHTML =
       `${this._round(st.attributes.temperature)}<span class="unit">${unit}</span>`;
     root.querySelector(".cond").textContent = labelFor(st.state);
@@ -268,6 +299,17 @@ class GlanceWeatherCard extends HTMLElement {
     root.querySelector(".humval").textContent =
       humidity === undefined || humidity === null || humidity === "" ? "–" : `${Math.round(humidity)}%`;
 
+    // Current precip chance: prefer the nearest hourly forecast, fall back to today's daily.
+    const pcpSource = (this._forecasts.hourly || [])[0] || (this._forecasts.daily || [])[0];
+    const pcp = popText(pcpSource);
+    const pcpEl = root.querySelector(".pcp");
+    if (pcp) {
+      pcpEl.classList.remove("hidden");
+      root.querySelector(".pcpval").textContent = pcp;
+    } else {
+      pcpEl.classList.add("hidden");
+    }
+
     // ---- Hourly ----
     const hourly = (this._forecasts.hourly || []).slice(0, this._hourlyCount);
     root.querySelector(".row.hourly").innerHTML = hourly
@@ -275,8 +317,9 @@ class GlanceWeatherCard extends HTMLElement {
         (f) => `
         <div class="cell">
           <span class="t1">${this._fmtHour(f.datetime)}</span>
-          <ha-icon icon="${iconFor(f.condition)}"></ha-icon>
+          <ha-icon icon="${iconFor(f.condition)}" style="color:${iconColorFor(f.condition)}"></ha-icon>
           <span class="t2">${this._round(f.temperature)}°</span>
+          <span class="pop">${popText(f)}</span>
         </div>`
       )
       .join("");
@@ -288,7 +331,7 @@ class GlanceWeatherCard extends HTMLElement {
         (f, i) => `
         <div class="cell">
           <span class="t1">${this._fmtDay(f.datetime, i)}</span>
-          <ha-icon icon="${iconFor(f.condition)}"></ha-icon>
+          <ha-icon icon="${iconFor(f.condition)}" style="color:${iconColorFor(f.condition)}"></ha-icon>
           <span class="t2">${this._round(f.temperature)}°</span>
           <span class="lo">${this._round(f.templow)}°</span>
         </div>`
