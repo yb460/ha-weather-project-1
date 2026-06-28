@@ -62,25 +62,39 @@ const labelFor = (c) =>
   CONDITION_LABELS[c] ||
   (c ? c.replace(/-/g, " ").replace(/\b\w/g, (m) => m.toUpperCase()) : "");
 
-// Wet/stormy conditions get tinted blue so precipitation stands out from the
-// pale "dry" icons at a glance.
-const PRECIP_CONDITIONS = new Set([
-  "rainy",
-  "pouring",
-  "lightning-rainy",
-  "lightning",
-  "hail",
-  "snowy",
-  "snowy-rainy",
-]);
+// Each condition gets its natural color so the strips read at a glance:
+// sunny is warm amber, rain/storms are blue, snow is icy, clouds are grey.
+const CONDITION_COLORS = {
+  sunny: "#ffd24a",
+  "clear-night": "#cdd7ff",
+  partlycloudy: "#ffd98a",
+  cloudy: "#aab8cc",
+  fog: "#aab8cc",
+  rainy: "#54b4ff",
+  pouring: "#2f9bff",
+  lightning: "#ffd24a",
+  "lightning-rainy": "#7aa8ff",
+  snowy: "#e6f3ff",
+  "snowy-rainy": "#a9dcff",
+  hail: "#cdeaff",
+  windy: "#9fe0c0",
+  "windy-variant": "#9fe0c0",
+  exceptional: "#ff8a7a",
+};
+const DEFAULT_ICON = "#cfe0f5";
 const PRECIP_BLUE = "#54b4ff";
-const DRY_ICON = "#cfe0f5";
-const iconColorFor = (c) => (PRECIP_CONDITIONS.has(c) ? PRECIP_BLUE : DRY_ICON);
+const iconColorFor = (c) => CONDITION_COLORS[c] || DEFAULT_ICON;
 
 // Probability of precipitation -> short "NN%" string, or "" when absent/zero.
 const popText = (f) => {
   const p = f?.precipitation_probability;
   return p === null || p === undefined || isNaN(p) || p <= 0 ? "" : `${Math.round(p)}%`;
+};
+
+// Forecast humidity -> "NN%" string, or "" when the integration doesn't supply it.
+const humText = (f) => {
+  const h = f?.humidity;
+  return h === null || h === undefined || h === "" || isNaN(h) ? "" : `${Math.round(h)}%`;
 };
 
 class GlanceWeatherCard extends HTMLElement {
@@ -103,8 +117,11 @@ class GlanceWeatherCard extends HTMLElement {
     this.config = config;
     this._dailyCount = config.daily_count ?? 7;
     this._hourlyCount = config.hourly_count ?? 12;
-    this._width = config.width ?? 325;
-    this._height = config.height ?? 220;
+    // width/height are optional. When omitted the card fills its dashboard
+    // cell, so it can be freely resized (e.g. drag-resized in a Sections
+    // dashboard). Set explicit px to pin it to a fixed size instead.
+    this._width = config.width ?? null;
+    this._height = config.height ?? null;
     // entity changed -> need a fresh subscription
     this._unsubscribe();
     this._buildSkeleton();
@@ -129,7 +146,12 @@ class GlanceWeatherCard extends HTMLElement {
   }
 
   getCardSize() {
-    return Math.ceil(this._height / 50);
+    return Math.ceil((this._height ?? 260) / 50);
+  }
+
+  // Let Sections (grid) dashboards resize the card freely, with sensible bounds.
+  getGridOptions() {
+    return { rows: 4, columns: 6, min_rows: 3, min_columns: 4 };
   }
 
   async _subscribeForecasts() {
@@ -195,10 +217,11 @@ class GlanceWeatherCard extends HTMLElement {
   _buildSkeleton() {
     this.shadowRoot.innerHTML = `
       <style>
-        :host { display: block; }
+        :host { display: block; height: 100%; }
         .card {
-          width: ${this._width}px;
-          height: ${this._height}px;
+          width: ${this._width ? `${this._width}px` : "100%"};
+          height: ${this._height ? `${this._height}px` : "100%"};
+          min-height: 210px;
           box-sizing: border-box;
           padding: 8px 9px;
           display: flex;
@@ -241,14 +264,19 @@ class GlanceWeatherCard extends HTMLElement {
           font-size: 9px; letter-spacing: 0.6px; text-transform: uppercase;
           opacity: 0.6; margin: 1px 0 0;
         }
-        .row { display: grid; gap: 1px; flex: 0 0 auto; }
+        /* Strips grow to share any extra height, so stretching the card just
+           gives the rows more breathing room instead of leaving dead space. */
+        .row { display: grid; gap: 1px; flex: 1 1 auto; align-content: center; }
         .row.hourly { grid-template-columns: repeat(${this._hourlyCount}, 1fr); }
         .row.daily { grid-template-columns: repeat(${this._dailyCount}, 1fr); }
-        .cell { display: flex; flex-direction: column; align-items: center; line-height: 1.15; }
-        .cell ha-icon { --mdc-icon-size: 18px; color: ${DRY_ICON}; margin: 1px 0; }
+        .cell { display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.15; }
+        .cell ha-icon { --mdc-icon-size: 18px; color: ${DEFAULT_ICON}; margin: 1px 0; }
         .cell .t1 { font-size: 10px; opacity: 0.8; }
         .cell .t2 { font-size: 11px; font-weight: 600; }
         .cell .lo { font-size: 10px; opacity: 0.72; }
+        .cell .dh { font-size: 9px; color: #7fd0ff; opacity: 0.9; display: flex; align-items: center; gap: 2px; margin-top: 1px; }
+        .cell .dh ha-icon { --mdc-icon-size: 10px; color: #7fd0ff; margin: 0; }
+        .cell .dh.hidden { display: none; }
         .cell .pop { font-size: 9px; font-weight: 600; line-height: 1.2; color: ${PRECIP_BLUE}; min-height: 11px; }
         .unit { font-size: 0.55em; opacity: 0.8; vertical-align: top; }
       </style>
@@ -328,13 +356,17 @@ class GlanceWeatherCard extends HTMLElement {
     const daily = (this._forecasts.daily || []).slice(0, this._dailyCount);
     root.querySelector(".row.daily").innerHTML = daily
       .map(
-        (f, i) => `
+        (f, i) => {
+          const rh = humText(f);
+          return `
         <div class="cell">
           <span class="t1">${this._fmtDay(f.datetime, i)}</span>
           <ha-icon icon="${iconFor(f.condition)}" style="color:${iconColorFor(f.condition)}"></ha-icon>
           <span class="t2">${this._round(f.temperature)}°</span>
           <span class="lo">${this._round(f.templow)}°</span>
-        </div>`
+          <span class="dh${rh ? "" : " hidden"}"><ha-icon icon="mdi:water-percent"></ha-icon>${rh}</span>
+        </div>`;
+        }
       )
       .join("");
   }
