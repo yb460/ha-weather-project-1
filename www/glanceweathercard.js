@@ -185,7 +185,10 @@ class GlanceWeatherCard extends HTMLElement {
           gap: 6px;
           overflow: hidden;
           border-radius: 14px;
-          color: var(--primary-text-color, #e9eef5);
+          /* Self-contained: the card background is always dark, so text uses a
+             fixed light color rather than the theme's --primary-text-color
+             (which is dark in light themes and would be unreadable here). */
+          color: #eaf1fb;
           background:
             radial-gradient(120% 80% at 80% 0%, rgba(90,140,210,0.18), transparent 60%),
             linear-gradient(160deg, #1d2733 0%, #141a22 100%);
