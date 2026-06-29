@@ -26,6 +26,7 @@ const CONDITION_ICONS = {
   lightning: "mdi:weather-lightning",
   "lightning-rainy": "mdi:weather-lightning-rainy",
   partlycloudy: "mdi:weather-partly-cloudy",
+  "partlycloudy-night": "mdi:weather-night-partly-cloudy",
   pouring: "mdi:weather-pouring",
   rainy: "mdi:weather-rainy",
   snowy: "mdi:weather-snowy",
@@ -36,6 +37,15 @@ const CONDITION_ICONS = {
 };
 
 const iconFor = (c) => CONDITION_ICONS[c] || "mdi:weather-cloudy";
+
+// At night, integrations often report clear/partly-cloudy as the daytime
+// "sunny"/"partlycloudy" tokens. Swap them to their night variants so a clear
+// night shows a moon, not a sun.
+const nightCondition = (c) => {
+  if (c === "sunny") return "clear-night";
+  if (c === "partlycloudy") return "partlycloudy-night";
+  return c;
+};
 
 // HA condition states are single tokens (e.g. "partlycloudy"), so a plain
 // prettifier can't split them. Map to readable labels; fall back to a
@@ -68,6 +78,7 @@ const CONDITION_COLORS = {
   sunny: "#ffd24a",
   "clear-night": "#cdd7ff",
   partlycloudy: "#ffd98a",
+  "partlycloudy-night": "#cdd7ff",
   cloudy: "#aab8cc",
   fog: "#aab8cc",
   rainy: "#54b4ff",
@@ -82,17 +93,18 @@ const CONDITION_COLORS = {
   exceptional: "#ff8a7a",
 };
 const DEFAULT_ICON = "#cfe0f5";
-const PRECIP_BLUE = "#54b4ff";
+// Metric colors, used consistently wherever each metric appears on the card.
+const RAIN_COLOR = "#54b4ff"; // chance of precipitation (blue)
+const HUMIDITY_COLOR = "#34c9c2"; // humidity (teal)
 const iconColorFor = (c) => CONDITION_COLORS[c] || DEFAULT_ICON;
 
-// Probability of precipitation. Returns null when absent/zero, otherwise the
-// "NN%" text plus a `low` flag (< 20%) so unlikely rain can be greyed out
-// while meaningful chances stay a bold blue.
-const POP_LOW_THRESHOLD = 20;
-const popInfo = (f) => {
+// Chance of precipitation. Shown only at/above the threshold; below it (and
+// when absent/zero) we hide it entirely so only meaningful rain appears.
+const POP_MIN = 20;
+const popText = (f) => {
   const p = f?.precipitation_probability;
-  if (p === null || p === undefined || isNaN(p) || p <= 0) return null;
-  return { text: `${Math.round(p)}%`, low: p < POP_LOW_THRESHOLD };
+  if (p === null || p === undefined || isNaN(p) || p < POP_MIN) return "";
+  return `${Math.round(p)}%`;
 };
 
 // Forecast humidity -> "NN%" string, or "" when the integration doesn't supply it.
@@ -224,6 +236,34 @@ class GlanceWeatherCard extends HTMLElement {
     return v === null || v === undefined || isNaN(v) ? "–" : Math.round(v);
   }
 
+  // Approximate sunrise/sunset hours from the sun.sun entity (falls back to
+  // 6:00/20:00), so a given forecast hour can be classified day vs. night.
+  _sunHours() {
+    const sun = this._hass?.states?.["sun.sun"];
+    let rise = 6;
+    let set = 20;
+    if (sun?.attributes) {
+      if (sun.attributes.next_rising) rise = new Date(sun.attributes.next_rising).getHours();
+      if (sun.attributes.next_setting) set = new Date(sun.attributes.next_setting).getHours();
+    }
+    return { rise, set };
+  }
+
+  _isNight(dt) {
+    const { rise, set } = this._sunHours();
+    const h = new Date(dt).getHours();
+    return h < rise || h >= set;
+  }
+
+  // Current (hero) day/night: trust sun.sun's live state when present.
+  _isNightNow() {
+    const sun = this._hass?.states?.["sun.sun"];
+    if (sun?.state) return sun.state === "below_horizon";
+    const h = new Date().getHours();
+    const { rise, set } = this._sunHours();
+    return h < rise || h >= set;
+  }
+
   _buildSkeleton() {
     this.shadowRoot.innerHTML = `
       <style>
@@ -264,11 +304,11 @@ class GlanceWeatherCard extends HTMLElement {
           white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
         }
         .hero .sub { display: flex; align-items: center; gap: 10px; }
-        .hero .hum, .hero .pcp { font-size: 12px; display: flex; align-items: center; gap: 3px; }
-        .hero .hum { opacity: 0.85; }
+        .hero .hum, .hero .pcp { font-size: 12px; font-weight: 600; display: flex; align-items: center; gap: 3px; }
         .hero .hum ha-icon, .hero .pcp ha-icon { --mdc-icon-size: 14px; }
-        .hero .pcp { color: ${PRECIP_BLUE}; font-weight: 600; }
-        .hero .pcp.low { color: #8a95a3; font-weight: 500; opacity: 0.85; }
+        .hero .hum { color: ${HUMIDITY_COLOR}; }
+        .hero .hum ha-icon { color: ${HUMIDITY_COLOR}; }
+        .hero .pcp { color: ${RAIN_COLOR}; }
         .hero .pcp.hidden { display: none; }
         .spacer { flex: 1 1 auto; }
         .label {
@@ -285,15 +325,13 @@ class GlanceWeatherCard extends HTMLElement {
         .cell .t1 { font-size: 10px; opacity: 0.8; }
         .cell .t2 { font-size: 11px; font-weight: 600; }
         .cell .lo { font-size: 10px; opacity: 0.72; }
-        .cell .dh { font-size: 9px; color: #7fd0ff; opacity: 0.9; display: flex; align-items: center; gap: 2px; margin-top: 1px; }
-        .cell .dh ha-icon { --mdc-icon-size: 10px; color: #7fd0ff; margin: 0; }
-        .cell .dh.hidden { display: none; }
-        /* Precip chance: bold blue when likely; very grey when < 20%. */
-        .cell .pop { font-size: 9px; font-weight: 600; line-height: 1.2; color: ${PRECIP_BLUE}; min-height: 11px; }
-        .cell .pop.low { color: #5d6b7a; font-weight: 500; opacity: 0.65; }
-        .cell .pop.rain { display: flex; align-items: center; gap: 2px; margin-top: 1px; }
-        .cell .pop.rain ha-icon { --mdc-icon-size: 10px; color: inherit; margin: 0; }
-        .cell .pop.hidden { display: none; }
+        /* Humidity: always teal. Rain chance: always blue. Same everywhere. */
+        .cell .dh { font-size: 9px; font-weight: 600; line-height: 1.2; color: ${HUMIDITY_COLOR}; display: flex; align-items: center; gap: 2px; min-height: 11px; }
+        .cell .dh ha-icon { --mdc-icon-size: 10px; color: ${HUMIDITY_COLOR}; margin: 0; }
+        .cell .dh.hidden { visibility: hidden; }
+        .cell .pop { font-size: 9px; font-weight: 600; line-height: 1.2; color: ${RAIN_COLOR}; display: flex; align-items: center; gap: 2px; min-height: 11px; }
+        .cell .pop ha-icon { --mdc-icon-size: 10px; color: ${RAIN_COLOR}; margin: 0; }
+        .cell .pop.hidden { visibility: hidden; }
         .unit { font-size: 0.55em; opacity: 0.8; vertical-align: top; }
       </style>
       <div class="card">
@@ -328,12 +366,13 @@ class GlanceWeatherCard extends HTMLElement {
     const unit = st.attributes.temperature_unit || "°";
 
     // ---- Hero (current) ----
+    const heroCond = this._isNightNow() ? nightCondition(st.state) : st.state;
     const heroIcon = root.querySelector(".big-icon");
-    heroIcon.setAttribute("icon", iconFor(st.state));
-    heroIcon.style.color = iconColorFor(st.state);
+    heroIcon.setAttribute("icon", iconFor(heroCond));
+    heroIcon.style.color = iconColorFor(heroCond);
     root.querySelector(".temp").innerHTML =
       `${this._round(st.attributes.temperature)}<span class="unit">${unit}</span>`;
-    root.querySelector(".cond").textContent = labelFor(st.state);
+    root.querySelector(".cond").textContent = labelFor(heroCond);
 
     let humidity = st.attributes.humidity;
     if (this.config.humidity_entity) {
@@ -345,12 +384,11 @@ class GlanceWeatherCard extends HTMLElement {
 
     // Current precip chance: prefer the nearest hourly forecast, fall back to today's daily.
     const pcpSource = (this._forecasts.hourly || [])[0] || (this._forecasts.daily || [])[0];
-    const pcp = popInfo(pcpSource);
+    const pcp = popText(pcpSource);
     const pcpEl = root.querySelector(".pcp");
     if (pcp) {
       pcpEl.classList.remove("hidden");
-      pcpEl.classList.toggle("low", pcp.low);
-      root.querySelector(".pcpval").textContent = pcp.text;
+      root.querySelector(".pcpval").textContent = pcp;
     } else {
       pcpEl.classList.add("hidden");
     }
@@ -359,13 +397,16 @@ class GlanceWeatherCard extends HTMLElement {
     const hourly = (this._forecasts.hourly || []).slice(0, this._hourlyCount);
     root.querySelector(".row.hourly").innerHTML = hourly
       .map((f) => {
-        const pi = popInfo(f);
+        const cond = this._isNight(f.datetime) ? nightCondition(f.condition) : f.condition;
+        const pop = popText(f);
+        const rh = humText(f);
         return `
         <div class="cell">
           <span class="t1">${this._fmtHour(f.datetime)}</span>
-          <ha-icon icon="${iconFor(f.condition)}" style="color:${iconColorFor(f.condition)}"></ha-icon>
+          <ha-icon icon="${iconFor(cond)}" style="color:${iconColorFor(cond)}"></ha-icon>
           <span class="t2">${this._round(f.temperature)}°</span>
-          <span class="pop${pi && pi.low ? " low" : ""}">${pi ? pi.text : ""}</span>
+          <span class="pop${pop ? "" : " hidden"}"><ha-icon icon="mdi:weather-pouring"></ha-icon>${pop}</span>
+          <span class="dh${rh ? "" : " hidden"}"><ha-icon icon="mdi:water-percent"></ha-icon>${rh}</span>
         </div>`;
       })
       .join("");
@@ -373,21 +414,19 @@ class GlanceWeatherCard extends HTMLElement {
     // ---- Daily ----
     const daily = (this._forecasts.daily || []).slice(0, this._dailyCount);
     root.querySelector(".row.daily").innerHTML = daily
-      .map(
-        (f, i) => {
-          const pi = popInfo(f);
-          const rh = humText(f);
-          return `
+      .map((f, i) => {
+        const pop = popText(f);
+        const rh = humText(f);
+        return `
         <div class="cell">
           <span class="t1">${this._fmtDay(f.datetime, i)}</span>
           <ha-icon icon="${iconFor(f.condition)}" style="color:${iconColorFor(f.condition)}"></ha-icon>
           <span class="t2">${this._round(f.temperature)}°</span>
           <span class="lo">${this._round(f.templow)}°</span>
-          <span class="pop rain${pi ? (pi.low ? " low" : "") : " hidden"}"><ha-icon icon="mdi:weather-pouring"></ha-icon>${pi ? pi.text : ""}</span>
+          <span class="pop${pop ? "" : " hidden"}"><ha-icon icon="mdi:weather-pouring"></ha-icon>${pop}</span>
           <span class="dh${rh ? "" : " hidden"}"><ha-icon icon="mdi:water-percent"></ha-icon>${rh}</span>
         </div>`;
-        }
-      )
+      })
       .join("");
   }
 }
