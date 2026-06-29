@@ -1,11 +1,15 @@
 name: Release
 
-# Publishes a GitHub Release (with the card JS attached) whenever a version
-# tag like v1.0.0 is pushed. HACS uses these releases to offer updates.
+# Auto-publishes a GitHub Release (a versioned snapshot inside THIS repo, with
+# the card JS attached) whenever the card changes on main. This is what lets
+# HACS show a one-click "Update" — it does NOT submit anything to HACS or any
+# public list. Runs on GitHub's runner, so it can create the tag/release.
 on:
   push:
-    tags:
-      - "v*"
+    branches: [main]
+    paths:
+      - "glanceweathercard.js"
+  workflow_dispatch: {}
 
 permissions:
   contents: write
@@ -15,8 +19,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Compute version tag
+        id: ver
+        run: echo "tag=v$(date -u +'%Y.%m.%d.%H%M%S')" >> "$GITHUB_OUTPUT"
       - name: Create release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ steps.ver.outputs.tag }}
+          name: ${{ steps.ver.outputs.tag }}
           generate_release_notes: true
           files: glanceweathercard.js
