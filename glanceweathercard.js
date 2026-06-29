@@ -47,6 +47,15 @@ const nightCondition = (c) => {
   return c;
 };
 
+// Map a condition to its background "mood" class (whitelisted so the value can
+// never inject an arbitrary class name).
+const BG_CONDITIONS = new Set([
+  "sunny", "clear-night", "partlycloudy", "partlycloudy-night", "cloudy", "fog",
+  "rainy", "pouring", "lightning", "lightning-rainy", "snowy", "snowy-rainy",
+  "hail", "windy", "windy-variant", "exceptional",
+]);
+const bgClassFor = (c) => (BG_CONDITIONS.has(c) ? `w-${c}` : "");
+
 // HA condition states are single tokens (e.g. "partlycloudy"), so a plain
 // prettifier can't split them. Map to readable labels; fall back to a
 // generic title-case for anything unknown.
@@ -269,6 +278,7 @@ class GlanceWeatherCard extends HTMLElement {
       <style>
         :host { display: block; height: 100%; }
         .card {
+          position: relative;
           width: ${this._width ? `${this._width}px` : "100%"};
           height: ${this._height ? `${this._height}px` : "100%"};
           min-height: 210px;
@@ -283,11 +293,122 @@ class GlanceWeatherCard extends HTMLElement {
              fixed light color rather than the theme's --primary-text-color
              (which is dark in light themes and would be unreadable here). */
           color: #eaf1fb;
+          /* Default backdrop; a per-condition w-* class swaps this to match the
+             current weather (see "weather moods" below). */
           background:
             radial-gradient(120% 80% at 80% 0%, rgba(90,140,210,0.18), transparent 60%),
             linear-gradient(160deg, #1d2733 0%, #141a22 100%);
           font-family: var(--paper-font-body1_-_font-family, system-ui, sans-serif);
           -webkit-font-smoothing: antialiased;
+        }
+        /* Animated effect layer sits behind the content (absolute => excluded
+           from the flex flow), content is lifted above it. */
+        .fx { position: absolute; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
+        .card > .hero, .card > .label, .card > .row { position: relative; z-index: 1; }
+
+        /* ---- Weather moods: backdrop tinted to the current condition ---- */
+        .card.w-sunny {
+          background:
+            radial-gradient(120% 90% at 82% -10%, rgba(255,200,90,0.30), transparent 55%),
+            linear-gradient(160deg, #1d3d57 0%, #0f2230 100%);
+        }
+        .card.w-clear-night, .card.w-partlycloudy-night {
+          background:
+            radial-gradient(120% 90% at 80% 0%, rgba(90,120,210,0.20), transparent 60%),
+            linear-gradient(170deg, #11173a 0%, #090d20 100%);
+        }
+        .card.w-partlycloudy {
+          background:
+            radial-gradient(120% 90% at 82% -5%, rgba(255,210,120,0.18), transparent 55%),
+            linear-gradient(160deg, #25384c 0%, #141f2a 100%);
+        }
+        .card.w-cloudy, .card.w-windy, .card.w-windy-variant {
+          background: linear-gradient(160deg, #2b333f 0%, #191f27 100%);
+        }
+        .card.w-fog {
+          background: linear-gradient(160deg, #2e343b 0%, #20262d 100%);
+        }
+        .card.w-rainy {
+          background:
+            radial-gradient(120% 90% at 80% 0%, rgba(70,110,160,0.18), transparent 60%),
+            linear-gradient(160deg, #1c2c3c 0%, #111a24 100%);
+        }
+        .card.w-pouring, .card.w-snowy-rainy {
+          background: linear-gradient(160deg, #172534 0%, #0d141d 100%);
+        }
+        .card.w-lightning, .card.w-lightning-rainy {
+          background: linear-gradient(160deg, #1a1f2b 0%, #0c0f16 100%);
+        }
+        .card.w-snowy, .card.w-hail {
+          background:
+            radial-gradient(120% 90% at 50% -10%, rgba(180,210,240,0.16), transparent 60%),
+            linear-gradient(160deg, #28323f 0%, #151c24 100%);
+        }
+        .card.w-exceptional {
+          background: linear-gradient(160deg, #2c1a1d 0%, #160f11 100%);
+        }
+
+        /* ---- Animated flourishes ---- */
+        .card.w-sunny .fx {
+          background: radial-gradient(closest-side at 82% 4%, rgba(255,205,110,0.22), transparent 72%);
+          animation: gw-sun 6s ease-in-out infinite;
+        }
+        .card.w-clear-night .fx, .card.w-partlycloudy-night .fx {
+          background-repeat: no-repeat;
+          background-image:
+            radial-gradient(1.4px 1.4px at 12% 22%, #fff, transparent),
+            radial-gradient(1.2px 1.2px at 28% 64%, #cfe0ff, transparent),
+            radial-gradient(1.4px 1.4px at 41% 16%, #fff, transparent),
+            radial-gradient(1px 1px at 55% 48%, #fff, transparent),
+            radial-gradient(1.4px 1.4px at 67% 28%, #dce8ff, transparent),
+            radial-gradient(1.1px 1.1px at 78% 60%, #fff, transparent),
+            radial-gradient(1.3px 1.3px at 90% 34%, #fff, transparent),
+            radial-gradient(1px 1px at 35% 38%, #cfe0ff, transparent),
+            radial-gradient(1.2px 1.2px at 84% 14%, #fff, transparent);
+          animation: gw-twinkle 5s ease-in-out infinite;
+        }
+        .card.w-rainy .fx, .card.w-pouring .fx, .card.w-lightning-rainy .fx, .card.w-snowy-rainy .fx {
+          background-image: repeating-linear-gradient(74deg,
+            rgba(170,200,235,0) 0 7px, rgba(170,200,235,0.16) 7px 8px);
+          animation: gw-rain 0.55s linear infinite;
+        }
+        .card.w-pouring .fx {
+          background-image: repeating-linear-gradient(74deg,
+            rgba(180,205,235,0) 0 5px, rgba(180,205,235,0.22) 5px 6px);
+          animation-duration: 0.38s;
+        }
+        .card.w-snowy .fx, .card.w-hail .fx {
+          background-repeat: repeat;
+          background-size: 130px 130px;
+          background-image:
+            radial-gradient(2px 2px at 24px 18px, rgba(255,255,255,0.9), transparent),
+            radial-gradient(1.6px 1.6px at 92px 64px, rgba(255,255,255,0.7), transparent),
+            radial-gradient(1.8px 1.8px at 56px 104px, rgba(255,255,255,0.8), transparent);
+          animation: gw-snow 7s linear infinite;
+        }
+        .card.w-cloudy .fx, .card.w-fog .fx, .card.w-windy .fx, .card.w-windy-variant .fx {
+          background: linear-gradient(100deg, transparent 0%, rgba(200,212,228,0.06) 50%, transparent 100%);
+          background-size: 220% 100%;
+          animation: gw-drift 13s linear infinite;
+        }
+        .card.w-fog .fx { background-image: linear-gradient(100deg, transparent 0%, rgba(200,212,228,0.12) 50%, transparent 100%); }
+        .card.w-lightning .fx::after, .card.w-lightning-rainy .fx::after {
+          content: ""; position: absolute; inset: 0; opacity: 0;
+          background: radial-gradient(130% 80% at 50% -5%, rgba(220,230,255,0.55), transparent 60%);
+          animation: gw-flash 7s linear infinite;
+        }
+        @keyframes gw-sun { 0%,100% { opacity: 0.65; } 50% { opacity: 1; } }
+        @keyframes gw-twinkle { 0%,100% { opacity: 0.45; } 50% { opacity: 1; } }
+        @keyframes gw-rain { to { background-position: -22px 60px; } }
+        @keyframes gw-snow { to { background-position: 14px 130px, -10px 130px, 6px 130px; } }
+        @keyframes gw-drift { to { background-position: 220% 0; } }
+        @keyframes gw-flash {
+          0%, 92%, 100% { opacity: 0; }
+          93% { opacity: 0.7; } 94% { opacity: 0.1; }
+          95% { opacity: 0.55; } 96% { opacity: 0; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .fx, .fx::after { animation: none !important; }
         }
         .hero {
           display: flex;
@@ -335,6 +456,7 @@ class GlanceWeatherCard extends HTMLElement {
         .unit { font-size: 0.55em; opacity: 0.8; vertical-align: top; }
       </style>
       <div class="card">
+        <div class="fx"></div>
         <div class="hero">
           <ha-icon class="big-icon"></ha-icon>
           <div class="temp">–</div>
@@ -367,6 +489,8 @@ class GlanceWeatherCard extends HTMLElement {
 
     // ---- Hero (current) ----
     const heroCond = this._isNightNow() ? nightCondition(st.state) : st.state;
+    // Make the whole card's backdrop "feel" like the current weather.
+    root.querySelector(".card").className = `card ${bgClassFor(heroCond)}`.trim();
     const heroIcon = root.querySelector(".big-icon");
     heroIcon.setAttribute("icon", iconFor(heroCond));
     heroIcon.style.color = iconColorFor(heroCond);
