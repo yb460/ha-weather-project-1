@@ -12,11 +12,28 @@ Defaults to a **325 × 220 px** box (the size you asked for) and reads from a si
 `weather/subscribe_forecast` websocket API (not deprecated attributes), so it works
 on HA 2023.9+.
 
-## Install
+## Install via HACS (recommended)
 
-1. Copy `www/glanceweathercard.js` into your Home Assistant `config/www/` folder
-   (so it lives at `config/www/glanceweathercard.js`, served as
-   `/local/glanceweathercard.js`).
+This is the easiest way — HACS installs the card and handles future updates for
+you (no copying files, no cache-busting).
+
+1. In Home Assistant open **HACS**.
+2. Top-right **⋮ → Custom repositories**.
+3. Add this repository's URL, choose category **Dashboard**, and click **Add**.
+4. Find **Glance Weather Card** in HACS, open it, and click **Download**.
+5. Reload your browser. HACS registers the dashboard resource automatically; if
+   prompted, add the resource it suggests
+   (`/hacsfiles/ha-weather-project-1/glanceweathercard.js`, type **JavaScript
+   Module**).
+
+When a new version is released, HACS shows an **Update** button — one click, no
+manual steps.
+
+## Manual install (alternative)
+
+1. Copy `glanceweathercard.js` (in the repo root) into your Home Assistant
+   `config/www/` folder, so it lives at `config/www/glanceweathercard.js`
+   (served as `/local/glanceweathercard.js`).
 
 2. Register it as a dashboard resource. **Settings → Dashboards → ⋮ → Resources →
    Add resource**:
