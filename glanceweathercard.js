@@ -370,8 +370,14 @@ class GlanceWeatherCard extends HTMLElement {
     const heroIcon = root.querySelector(".big-icon");
     heroIcon.setAttribute("icon", iconFor(heroCond));
     heroIcon.style.color = iconColorFor(heroCond);
-    root.querySelector(".temp").innerHTML =
-      `${this._round(st.attributes.temperature)}<span class="unit">${unit}</span>`;
+    // Build via textContent (not innerHTML) so the unit string, which comes
+    // from entity attributes, can never inject markup.
+    const tempEl = root.querySelector(".temp");
+    tempEl.textContent = `${this._round(st.attributes.temperature)}`;
+    const unitSpan = document.createElement("span");
+    unitSpan.className = "unit";
+    unitSpan.textContent = unit;
+    tempEl.appendChild(unitSpan);
     root.querySelector(".cond").textContent = labelFor(heroCond);
 
     let humidity = st.attributes.humidity;
