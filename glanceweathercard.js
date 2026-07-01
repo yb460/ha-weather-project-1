@@ -132,6 +132,17 @@ class GlanceWeatherCard extends HTMLElement {
     this._built = false;
   }
 
+  // Visual (GUI) editor shown when adding/editing the card in a dashboard.
+  static getConfigElement() {
+    return document.createElement("glance-weather-card-editor");
+  }
+
+  // Sensible default when the card is first added: pick the first weather entity.
+  static getStubConfig(hass) {
+    const weather = Object.keys(hass?.states || {}).find((e) => e.startsWith("weather."));
+    return { entity: weather || "weather.home" };
+  }
+
   setConfig(config) {
     if (!config || !config.entity) {
       throw new Error("glance-weather-card: 'entity' (a weather.* entity) is required");
@@ -418,7 +429,10 @@ class GlanceWeatherCard extends HTMLElement {
           flex: 0 0 auto;
         }
         .hero .big-icon { --mdc-icon-size: 42px; color: #cfe0f5; flex: 0 0 auto; }
+        .hero .tempwrap { display: flex; flex-direction: column; justify-content: center; flex: 0 0 auto; }
         .hero .temp { font-size: 38px; font-weight: 600; line-height: 1; }
+        .hero .feels { font-size: 10px; line-height: 1.1; opacity: 0.75; margin-top: 2px; white-space: nowrap; }
+        .hero .feels.hidden { display: none; }
         .hero .meta { display: flex; flex-direction: column; justify-content: center; gap: 3px; min-width: 0; }
         .hero .cond {
           font-size: 12px; font-weight: 500; line-height: 1.2;
@@ -459,7 +473,10 @@ class GlanceWeatherCard extends HTMLElement {
         <div class="fx"></div>
         <div class="hero">
           <ha-icon class="big-icon"></ha-icon>
-          <div class="temp">–</div>
+          <div class="tempwrap">
+            <div class="temp">–</div>
+            <div class="feels hidden">Feels <span class="feelsval"></span></div>
+          </div>
           <div class="meta">
             <div class="cond"></div>
             <div class="sub">
@@ -503,6 +520,21 @@ class GlanceWeatherCard extends HTMLElement {
     unitSpan.textContent = unit;
     tempEl.appendChild(unitSpan);
     root.querySelector(".cond").textContent = labelFor(heroCond);
+
+    // "Real feel" / apparent temperature: from the weather entity's
+    // apparent_temperature attribute, or an optional sensor override.
+    let feels = st.attributes.apparent_temperature;
+    if (this.config.apparent_temperature_entity) {
+      const s = this._hass.states[this.config.apparent_temperature_entity];
+      if (s) feels = s.state;
+    }
+    const feelsEl = root.querySelector(".feels");
+    if (feels === undefined || feels === null || feels === "" || isNaN(feels)) {
+      feelsEl.classList.add("hidden");
+    } else {
+      feelsEl.classList.remove("hidden");
+      root.querySelector(".feelsval").textContent = `${Math.round(feels)}°`;
+    }
 
     let humidity = st.attributes.humidity;
     if (this.config.humidity_entity) {
@@ -562,6 +594,74 @@ class GlanceWeatherCard extends HTMLElement {
 }
 
 customElements.define("glance-weather-card", GlanceWeatherCard);
+
+// ---- Visual config editor (GUI) ----
+// Uses HA's built-in <ha-form> with selectors, so the weather entity (and the
+// optional sensors/counts/size) are chosen from pickers instead of YAML.
+const EDITOR_SCHEMA = [
+  { name: "entity", required: true, selector: { entity: { domain: "weather" } } },
+  { name: "apparent_temperature_entity", selector: { entity: { domain: ["sensor", "number", "input_number"] } } },
+  { name: "humidity_entity", selector: { entity: { domain: ["sensor", "number", "input_number"] } } },
+  {
+    name: "",
+    type: "grid",
+    schema: [
+      { name: "hourly_count", selector: { number: { min: 1, max: 24, mode: "box" } } },
+      { name: "daily_count", selector: { number: { min: 1, max: 10, mode: "box" } } },
+      { name: "width", selector: { number: { min: 100, max: 1200, mode: "box", unit_of_measurement: "px" } } },
+      { name: "height", selector: { number: { min: 100, max: 1200, mode: "box", unit_of_measurement: "px" } } },
+    ],
+  },
+];
+const EDITOR_LABELS = {
+  entity: "Weather entity (required)",
+  apparent_temperature_entity: "Real-feel temperature entity (optional)",
+  humidity_entity: "Humidity entity (optional)",
+  hourly_count: "Hourly columns",
+  daily_count: "Daily columns",
+  width: "Width (blank = fill cell)",
+  height: "Height (blank = fill cell)",
+};
+
+class GlanceWeatherCardEditor extends HTMLElement {
+  setConfig(config) {
+    this._config = config;
+    if (this._form) this._form.data = config;
+  }
+
+  set hass(hass) {
+    this._hass = hass;
+    if (this._form) this._form.hass = hass;
+  }
+
+  connectedCallback() {
+    this._render();
+  }
+
+  _render() {
+    if (this._form) return;
+    const form = document.createElement("ha-form");
+    form.schema = EDITOR_SCHEMA;
+    form.computeLabel = (s) => EDITOR_LABELS[s.name] || s.name;
+    if (this._hass) form.hass = this._hass;
+    if (this._config) form.data = this._config;
+    form.addEventListener("value-changed", (ev) => {
+      ev.stopPropagation();
+      // Merge so non-schema keys (e.g. `type`) are preserved.
+      const config = { ...this._config, ...ev.detail.value };
+      this.dispatchEvent(
+        new CustomEvent("config-changed", {
+          detail: { config },
+          bubbles: true,
+          composed: true,
+        })
+      );
+    });
+    this._form = form;
+    this.appendChild(form);
+  }
+}
+customElements.define("glance-weather-card-editor", GlanceWeatherCardEditor);
 
 window.customCards = window.customCards || [];
 window.customCards.push({

@@ -52,23 +52,32 @@ manual steps.
 
 ## Use
 
-Add the card to a dashboard:
+Add it from the dashboard UI (**Add Card → Glance Weather Card**) and **pick your
+weather entity from the dropdown** — no YAML needed. The visual editor also lets
+you set the real-feel/humidity sensors, column counts, and size.
+
+Or in YAML:
 
 ```yaml
 type: custom:glance-weather-card
-entity: weather.home
+entity: weather.home   # any weather.* entity
 ```
 
 ### Options
 
-| Option            | Default        | Description                                          |
-| ----------------- | -------------- | ---------------------------------------------------- |
-| `entity`          | *(required)*   | A `weather.*` entity (e.g. `weather.home`)           |
-| `width`           | *(fluid)*      | Card width in px. Omit to fill the dashboard cell    |
-| `height`          | *(fluid)*      | Card height in px. Omit to fill the dashboard cell   |
-| `hourly_count`    | `12`           | Number of hourly columns                             |
-| `daily_count`     | `7`            | Number of daily columns                              |
-| `humidity_entity` | *(unset)*      | Optional separate sensor for current humidity        |
+| Option                        | Default      | Description                                                    |
+| ----------------------------- | ------------ | ------------------------------------------------------------- |
+| `entity`                      | *(required)* | A `weather.*` entity (e.g. `weather.home`)                     |
+| `width`                       | *(fluid)*    | Card width in px. Omit to fill the dashboard cell             |
+| `height`                      | *(fluid)*    | Card height in px. Omit to fill the dashboard cell            |
+| `hourly_count`                | `12`         | Number of hourly columns                                       |
+| `daily_count`                 | `7`          | Number of daily columns                                        |
+| `humidity_entity`             | *(unset)*    | Optional separate sensor for current humidity                  |
+| `apparent_temperature_entity` | *(unset)*    | Optional sensor for "real feel"; otherwise the weather entity's `apparent_temperature` attribute is used |
+
+The hero shows a **"Feels" (real-feel) temperature** under the main temperature
+when the weather entity provides `apparent_temperature` (or you set
+`apparent_temperature_entity`).
 
 By default the card has **no fixed size** — it fills its dashboard cell, so on a
 **Sections** dashboard you can drag its resize handles to any size and the rows
