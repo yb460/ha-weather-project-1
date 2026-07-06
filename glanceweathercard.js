@@ -179,6 +179,7 @@ class GlanceWeatherCard extends HTMLElement {
 
   disconnectedCallback() {
     this._unsubscribe();
+    this._detachReconnect();
   }
 
   getCardSize() {
@@ -199,6 +200,7 @@ class GlanceWeatherCard extends HTMLElement {
   async _subscribeForecasts() {
     if (!this._hass || !this.config || this._subscribed) return;
     this._subscribed = true;
+    this._attachReconnect();
     for (const type of ["daily", "hourly"]) {
       try {
         const unsub = await this._hass.connection.subscribeMessage(
@@ -231,6 +233,34 @@ class GlanceWeatherCard extends HTMLElement {
     });
     this._unsubs = [];
     this._subscribed = false;
+  }
+
+  // The forecast strips only get data from the weather/subscribe_forecast push.
+  // When the websocket reconnects (HA restart, network blip) the old
+  // subscription is dead, so re-subscribe on the connection's "ready" event —
+  // otherwise the strips silently go blank until the page is reloaded.
+  _attachReconnect() {
+    const conn = this._hass?.connection;
+    if (!conn || typeof conn.addEventListener !== "function" || this._reconnectConn === conn) return;
+    this._detachReconnect();
+    this._onReady = () => {
+      this._unsubscribe();
+      this._subscribeForecasts();
+    };
+    conn.addEventListener("ready", this._onReady);
+    this._reconnectConn = conn;
+  }
+
+  _detachReconnect() {
+    if (this._reconnectConn && this._onReady) {
+      try {
+        this._reconnectConn.removeEventListener("ready", this._onReady);
+      } catch (e) {
+        /* ignore */
+      }
+    }
+    this._reconnectConn = null;
+    this._onReady = null;
   }
 
   _lang() {
