@@ -350,103 +350,116 @@ class GlanceWeatherCard extends HTMLElement {
         /* ---- Weather moods: backdrop tinted to the current condition ---- */
         .card.w-sunny {
           background:
-            radial-gradient(120% 90% at 82% -10%, rgba(255,200,90,0.30), transparent 55%),
-            linear-gradient(160deg, #1d3d57 0%, #0f2230 100%);
+            radial-gradient(130% 100% at 82% -12%, rgba(255,190,70,0.52), transparent 60%),
+            linear-gradient(160deg, #235a7e 0%, #0f2a3c 100%);
         }
         .card.w-clear-night, .card.w-partlycloudy-night {
           background:
-            radial-gradient(120% 90% at 80% 0%, rgba(90,120,210,0.20), transparent 60%),
-            linear-gradient(170deg, #11173a 0%, #090d20 100%);
+            radial-gradient(130% 100% at 80% -6%, rgba(96,120,235,0.40), transparent 64%),
+            linear-gradient(170deg, #171d55 0%, #080c22 100%);
         }
         .card.w-partlycloudy {
           background:
-            radial-gradient(120% 90% at 82% -5%, rgba(255,210,120,0.18), transparent 55%),
-            linear-gradient(160deg, #25384c 0%, #141f2a 100%);
+            radial-gradient(130% 100% at 82% -8%, rgba(255,200,110,0.36), transparent 60%),
+            linear-gradient(160deg, #2c4a63 0%, #16222e 100%);
         }
         .card.w-cloudy, .card.w-windy, .card.w-windy-variant {
-          background: linear-gradient(160deg, #2b333f 0%, #191f27 100%);
+          background:
+            radial-gradient(130% 100% at 50% -12%, rgba(155,175,200,0.22), transparent 62%),
+            linear-gradient(160deg, #38424f 0%, #1a212a 100%);
         }
         .card.w-fog {
-          background: linear-gradient(160deg, #2e343b 0%, #20262d 100%);
+          background:
+            radial-gradient(130% 100% at 50% 0%, rgba(185,195,210,0.24), transparent 66%),
+            linear-gradient(160deg, #3c434c 0%, #262d35 100%);
         }
         .card.w-rainy {
           background:
-            radial-gradient(120% 90% at 80% 0%, rgba(70,110,160,0.18), transparent 60%),
-            linear-gradient(160deg, #1c2c3c 0%, #111a24 100%);
+            radial-gradient(130% 100% at 78% -6%, rgba(70,120,185,0.44), transparent 64%),
+            linear-gradient(160deg, #1e374f 0%, #0d1926 100%);
         }
         .card.w-pouring, .card.w-snowy-rainy {
-          background: linear-gradient(160deg, #172534 0%, #0d141d 100%);
+          background:
+            radial-gradient(130% 100% at 75% -6%, rgba(60,110,175,0.42), transparent 62%),
+            linear-gradient(160deg, #17304a 0%, #0a1420 100%);
         }
         .card.w-lightning, .card.w-lightning-rainy {
-          background: linear-gradient(160deg, #1a1f2b 0%, #0c0f16 100%);
+          background:
+            radial-gradient(130% 100% at 60% -10%, rgba(150,120,225,0.34), transparent 62%),
+            linear-gradient(160deg, #211f38 0%, #0b0c16 100%);
         }
         .card.w-snowy, .card.w-hail {
           background:
-            radial-gradient(120% 90% at 50% -10%, rgba(180,210,240,0.16), transparent 60%),
-            linear-gradient(160deg, #28323f 0%, #151c24 100%);
+            radial-gradient(130% 100% at 50% -12%, rgba(195,218,248,0.34), transparent 64%),
+            linear-gradient(160deg, #2e3c4c 0%, #141d27 100%);
         }
         .card.w-exceptional {
-          background: linear-gradient(160deg, #2c1a1d 0%, #160f11 100%);
+          background:
+            radial-gradient(130% 100% at 50% -10%, rgba(255,90,80,0.36), transparent 62%),
+            linear-gradient(160deg, #3a1e22 0%, #160e10 100%);
         }
 
         /* ---- Animated flourishes ---- */
         .card.w-sunny .fx {
-          background: radial-gradient(closest-side at 82% 4%, rgba(255,205,110,0.22), transparent 72%);
-          animation: gw-sun 6s ease-in-out infinite;
+          background: radial-gradient(closest-side at 82% 2%, rgba(255,200,90,0.40), transparent 76%);
+          animation: gw-sun 5s ease-in-out infinite;
         }
         .card.w-clear-night .fx, .card.w-partlycloudy-night .fx {
           background-repeat: no-repeat;
           background-image:
-            radial-gradient(1.4px 1.4px at 12% 22%, #fff, transparent),
-            radial-gradient(1.2px 1.2px at 28% 64%, #cfe0ff, transparent),
-            radial-gradient(1.4px 1.4px at 41% 16%, #fff, transparent),
-            radial-gradient(1px 1px at 55% 48%, #fff, transparent),
-            radial-gradient(1.4px 1.4px at 67% 28%, #dce8ff, transparent),
-            radial-gradient(1.1px 1.1px at 78% 60%, #fff, transparent),
-            radial-gradient(1.3px 1.3px at 90% 34%, #fff, transparent),
-            radial-gradient(1px 1px at 35% 38%, #cfe0ff, transparent),
-            radial-gradient(1.2px 1.2px at 84% 14%, #fff, transparent);
-          animation: gw-twinkle 5s ease-in-out infinite;
+            radial-gradient(1.8px 1.8px at 12% 22%, #fff, transparent),
+            radial-gradient(1.6px 1.6px at 28% 64%, #dce8ff, transparent),
+            radial-gradient(2px 2px at 41% 16%, #fff, transparent),
+            radial-gradient(1.5px 1.5px at 55% 48%, #fff, transparent),
+            radial-gradient(1.9px 1.9px at 67% 28%, #eaf1ff, transparent),
+            radial-gradient(1.6px 1.6px at 78% 60%, #fff, transparent),
+            radial-gradient(2px 2px at 90% 34%, #fff, transparent),
+            radial-gradient(1.5px 1.5px at 35% 38%, #dce8ff, transparent),
+            radial-gradient(1.7px 1.7px at 84% 14%, #fff, transparent),
+            radial-gradient(1.6px 1.6px at 20% 46%, #fff, transparent),
+            radial-gradient(1.5px 1.5px at 62% 72%, #dce8ff, transparent);
+          animation: gw-twinkle 4s ease-in-out infinite;
         }
         .card.w-rainy .fx, .card.w-pouring .fx, .card.w-lightning-rainy .fx, .card.w-snowy-rainy .fx {
           background-image: repeating-linear-gradient(74deg,
-            rgba(170,200,235,0) 0 7px, rgba(170,200,235,0.16) 7px 8px);
-          animation: gw-rain 0.55s linear infinite;
+            rgba(185,208,240,0) 0 6px, rgba(185,208,240,0.30) 6px 7.5px);
+          animation: gw-rain 0.5s linear infinite;
         }
         .card.w-pouring .fx {
           background-image: repeating-linear-gradient(74deg,
-            rgba(180,205,235,0) 0 5px, rgba(180,205,235,0.22) 5px 6px);
-          animation-duration: 0.38s;
+            rgba(195,214,242,0) 0 4px, rgba(195,214,242,0.40) 4px 5.5px);
+          animation-duration: 0.32s;
         }
         .card.w-snowy .fx, .card.w-hail .fx {
           background-repeat: repeat;
-          background-size: 130px 130px;
+          background-size: 110px 110px;
           background-image:
-            radial-gradient(2px 2px at 24px 18px, rgba(255,255,255,0.9), transparent),
-            radial-gradient(1.6px 1.6px at 92px 64px, rgba(255,255,255,0.7), transparent),
-            radial-gradient(1.8px 1.8px at 56px 104px, rgba(255,255,255,0.8), transparent);
-          animation: gw-snow 7s linear infinite;
+            radial-gradient(2.4px 2.4px at 24px 18px, rgba(255,255,255,1), transparent),
+            radial-gradient(2px 2px at 92px 64px, rgba(255,255,255,0.85), transparent),
+            radial-gradient(2.2px 2.2px at 56px 100px, rgba(255,255,255,0.95), transparent),
+            radial-gradient(1.8px 1.8px at 12px 78px, rgba(255,255,255,0.8), transparent);
+          animation: gw-snow 6s linear infinite;
         }
         .card.w-cloudy .fx, .card.w-fog .fx, .card.w-windy .fx, .card.w-windy-variant .fx {
-          background: linear-gradient(100deg, transparent 0%, rgba(200,212,228,0.06) 50%, transparent 100%);
+          background: linear-gradient(100deg, transparent 0%, rgba(205,216,232,0.12) 50%, transparent 100%);
           background-size: 220% 100%;
-          animation: gw-drift 13s linear infinite;
+          animation: gw-drift 12s linear infinite;
         }
-        .card.w-fog .fx { background-image: linear-gradient(100deg, transparent 0%, rgba(200,212,228,0.12) 50%, transparent 100%); }
+        .card.w-fog .fx { background-image: linear-gradient(100deg, transparent 0%, rgba(205,216,232,0.22) 50%, transparent 100%); }
         .card.w-lightning .fx::after, .card.w-lightning-rainy .fx::after {
           content: ""; position: absolute; inset: 0; opacity: 0;
-          background: radial-gradient(130% 80% at 50% -5%, rgba(220,230,255,0.55), transparent 60%);
-          animation: gw-flash 7s linear infinite;
+          background: radial-gradient(140% 90% at 50% -5%, rgba(230,235,255,0.85), transparent 62%);
+          animation: gw-flash 6s linear infinite;
         }
-        @keyframes gw-sun { 0%,100% { opacity: 0.65; } 50% { opacity: 1; } }
-        @keyframes gw-twinkle { 0%,100% { opacity: 0.45; } 50% { opacity: 1; } }
-        @keyframes gw-rain { to { background-position: -22px 60px; } }
-        @keyframes gw-snow { to { background-position: 14px 130px, -10px 130px, 6px 130px; } }
+        @keyframes gw-sun { 0%,100% { opacity: 0.78; } 50% { opacity: 1; } }
+        @keyframes gw-twinkle { 0%,100% { opacity: 0.6; } 50% { opacity: 1; } }
+        @keyframes gw-rain { to { background-position: -20px 55px; } }
+        @keyframes gw-snow { to { background-position: 12px 110px, -8px 110px, 6px 110px, -4px 110px; } }
         @keyframes gw-drift { to { background-position: 220% 0; } }
         @keyframes gw-flash {
-          0%, 92%, 100% { opacity: 0; }
-          93% { opacity: 0.7; } 94% { opacity: 0.1; }
-          95% { opacity: 0.55; } 96% { opacity: 0; }
+          0%, 90%, 100% { opacity: 0; }
+          91% { opacity: 0.9; } 92% { opacity: 0.15; }
+          93% { opacity: 0.75; } 94% { opacity: 0; }
         }
         @media (prefers-reduced-motion: reduce) {
           .fx, .fx::after { animation: none !important; }
