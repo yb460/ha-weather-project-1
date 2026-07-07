@@ -400,9 +400,18 @@ class GlanceWeatherCard extends HTMLElement {
         }
 
         /* ---- Animated flourishes ---- */
+        /* Sun: pulsing core glow + slowly turning rays. */
         .card.w-sunny .fx {
-          background: radial-gradient(closest-side at 82% 2%, rgba(255,200,90,0.40), transparent 76%);
+          background: radial-gradient(72px 72px at 84% -2%, rgba(255,205,110,0.55), transparent);
           animation: gw-sun 5s ease-in-out infinite;
+        }
+        .card.w-sunny .fx::before {
+          content: ""; position: absolute; top: -74px; right: -46px; width: 196px; height: 196px;
+          background: repeating-conic-gradient(from 0deg, rgba(255,214,130,0.36) 0deg 4deg, transparent 4deg 30deg);
+          -webkit-mask: radial-gradient(circle, transparent 30px, #000 34px, #000 66px, transparent 76px);
+                  mask: radial-gradient(circle, transparent 30px, #000 34px, #000 66px, transparent 76px);
+          border-radius: 50%;
+          animation: gw-spin 34s linear infinite;
         }
         .card.w-clear-night .fx, .card.w-partlycloudy-night .fx {
           background-repeat: no-repeat;
@@ -420,25 +429,59 @@ class GlanceWeatherCard extends HTMLElement {
             radial-gradient(1.5px 1.5px at 62% 72%, #dce8ff, transparent);
           animation: gw-twinkle 4s ease-in-out infinite;
         }
+        /* Rain: two parallax layers of falling droplets (vertical streaks). */
         .card.w-rainy .fx, .card.w-pouring .fx, .card.w-lightning-rainy .fx, .card.w-snowy-rainy .fx {
-          background-image: repeating-linear-gradient(74deg,
-            rgba(185,208,240,0) 0 6px, rgba(185,208,240,0.30) 6px 7.5px);
-          animation: gw-rain 0.5s linear infinite;
+          background-repeat: repeat;
+          background-size: 58px 80px;
+          background-image:
+            radial-gradient(1.2px 8px at 10px 8px, rgba(200,222,248,0.55), transparent),
+            radial-gradient(1.2px 8px at 38px 30px, rgba(200,222,248,0.5), transparent),
+            radial-gradient(1.2px 8px at 24px 56px, rgba(200,222,248,0.5), transparent),
+            radial-gradient(1.2px 8px at 50px 70px, rgba(200,222,248,0.45), transparent);
+          animation: gw-fall-a 0.6s linear infinite;
+        }
+        .card.w-rainy .fx::before, .card.w-pouring .fx::before,
+        .card.w-lightning-rainy .fx::before, .card.w-snowy-rainy .fx::before {
+          content: ""; position: absolute; inset: 0; opacity: 0.7;
+          background-repeat: repeat;
+          background-size: 78px 104px;
+          background-image:
+            radial-gradient(1.4px 10px at 20px 14px, rgba(210,228,250,0.5), transparent),
+            radial-gradient(1.4px 10px at 60px 46px, rgba(210,228,250,0.45), transparent),
+            radial-gradient(1.4px 10px at 40px 84px, rgba(210,228,250,0.45), transparent);
+          animation: gw-fall-b 0.9s linear infinite;
         }
         .card.w-pouring .fx {
-          background-image: repeating-linear-gradient(74deg,
-            rgba(195,214,242,0) 0 4px, rgba(195,214,242,0.40) 4px 5.5px);
-          animation-duration: 0.32s;
+          background-image:
+            radial-gradient(1.3px 8px at 8px 6px, rgba(205,225,250,0.6), transparent),
+            radial-gradient(1.3px 8px at 30px 22px, rgba(205,225,250,0.55), transparent),
+            radial-gradient(1.3px 8px at 48px 40px, rgba(205,225,250,0.55), transparent),
+            radial-gradient(1.3px 8px at 18px 52px, rgba(205,225,250,0.5), transparent),
+            radial-gradient(1.3px 8px at 40px 68px, rgba(205,225,250,0.55), transparent),
+            radial-gradient(1.3px 8px at 54px 14px, rgba(205,225,250,0.5), transparent);
+          animation-duration: 0.42s;
         }
+        .card.w-pouring .fx::before { opacity: 0.9; animation-duration: 0.6s; }
+        /* Snow: two parallax layers of drifting flakes. */
         .card.w-snowy .fx, .card.w-hail .fx {
           background-repeat: repeat;
-          background-size: 110px 110px;
+          background-size: 100px 100px;
           background-image:
-            radial-gradient(2.4px 2.4px at 24px 18px, rgba(255,255,255,1), transparent),
-            radial-gradient(2px 2px at 92px 64px, rgba(255,255,255,0.85), transparent),
-            radial-gradient(2.2px 2.2px at 56px 100px, rgba(255,255,255,0.95), transparent),
-            radial-gradient(1.8px 1.8px at 12px 78px, rgba(255,255,255,0.8), transparent);
-          animation: gw-snow 6s linear infinite;
+            radial-gradient(2.4px 2.4px at 20px 18px, #fff, transparent),
+            radial-gradient(2px 2px at 70px 50px, rgba(255,255,255,0.85), transparent),
+            radial-gradient(2.6px 2.6px at 46px 82px, #fff, transparent),
+            radial-gradient(1.8px 1.8px at 88px 92px, rgba(255,255,255,0.8), transparent);
+          animation: gw-snow-a 6.5s linear infinite;
+        }
+        .card.w-snowy .fx::before, .card.w-hail .fx::before {
+          content: ""; position: absolute; inset: 0; opacity: 0.85;
+          background-repeat: repeat;
+          background-size: 140px 140px;
+          background-image:
+            radial-gradient(1.8px 1.8px at 30px 24px, #fff, transparent),
+            radial-gradient(2.2px 2.2px at 100px 70px, rgba(255,255,255,0.9), transparent),
+            radial-gradient(1.6px 1.6px at 64px 120px, rgba(255,255,255,0.8), transparent);
+          animation: gw-snow-b 10s linear infinite;
         }
         .card.w-cloudy .fx, .card.w-fog .fx, .card.w-windy .fx, .card.w-windy-variant .fx {
           background: linear-gradient(100deg, transparent 0%, rgba(205,216,232,0.12) 50%, transparent 100%);
@@ -451,10 +494,13 @@ class GlanceWeatherCard extends HTMLElement {
           background: radial-gradient(140% 90% at 50% -5%, rgba(230,235,255,0.85), transparent 62%);
           animation: gw-flash 6s linear infinite;
         }
-        @keyframes gw-sun { 0%,100% { opacity: 0.78; } 50% { opacity: 1; } }
+        @keyframes gw-sun { 0%,100% { opacity: 0.8; } 50% { opacity: 1; } }
+        @keyframes gw-spin { to { transform: rotate(360deg); } }
         @keyframes gw-twinkle { 0%,100% { opacity: 0.6; } 50% { opacity: 1; } }
-        @keyframes gw-rain { to { background-position: -20px 55px; } }
-        @keyframes gw-snow { to { background-position: 12px 110px, -8px 110px, 6px 110px, -4px 110px; } }
+        @keyframes gw-fall-a { to { background-position: -10px 80px; } }
+        @keyframes gw-fall-b { to { background-position: 8px 104px; } }
+        @keyframes gw-snow-a { to { background-position: 14px 100px; } }
+        @keyframes gw-snow-b { to { background-position: -20px 140px; } }
         @keyframes gw-drift { to { background-position: 220% 0; } }
         @keyframes gw-flash {
           0%, 90%, 100% { opacity: 0; }
@@ -462,7 +508,7 @@ class GlanceWeatherCard extends HTMLElement {
           93% { opacity: 0.75; } 94% { opacity: 0; }
         }
         @media (prefers-reduced-motion: reduce) {
-          .fx, .fx::after { animation: none !important; }
+          .fx, .fx::before, .fx::after { animation: none !important; }
         }
         .hero {
           display: flex;
