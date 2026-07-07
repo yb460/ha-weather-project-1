@@ -483,12 +483,60 @@ class GlanceWeatherCard extends HTMLElement {
             radial-gradient(1.6px 1.6px at 64px 120px, rgba(255,255,255,0.8), transparent);
           animation: gw-snow-b 10s linear infinite;
         }
-        .card.w-cloudy .fx, .card.w-fog .fx, .card.w-windy .fx, .card.w-windy-variant .fx {
-          background: linear-gradient(100deg, transparent 0%, rgba(205,216,232,0.12) 50%, transparent 100%);
-          background-size: 220% 100%;
-          animation: gw-drift 12s linear infinite;
+        /* Clouds (also partly-cloudy day): soft blobs drifting in two layers. */
+        .card.w-cloudy .fx, .card.w-partlycloudy .fx {
+          background-repeat: repeat-x;
+          background-size: 340px 100%;
+          background-image:
+            radial-gradient(70px 42px at 70px 34px, rgba(214,224,238,0.18), transparent 70%),
+            radial-gradient(104px 58px at 168px 26px, rgba(214,224,238,0.22), transparent 72%),
+            radial-gradient(64px 40px at 252px 42px, rgba(214,224,238,0.18), transparent 70%);
+          animation: gw-cloud-a 26s linear infinite;
         }
-        .card.w-fog .fx { background-image: linear-gradient(100deg, transparent 0%, rgba(205,216,232,0.22) 50%, transparent 100%); }
+        .card.w-cloudy .fx::before, .card.w-partlycloudy .fx::before {
+          content: ""; position: absolute; inset: 0; opacity: 0.85;
+          background-repeat: repeat-x;
+          background-size: 470px 100%;
+          background-image:
+            radial-gradient(120px 66px at 120px 72px, rgba(200,210,226,0.14), transparent 72%),
+            radial-gradient(94px 54px at 330px 88px, rgba(200,210,226,0.16), transparent 72%);
+          animation: gw-cloud-b 42s linear infinite;
+        }
+        /* Fog: thick mist banks rolling slowly in opposite directions. */
+        .card.w-fog .fx {
+          background-repeat: repeat-x;
+          background-size: 360px 100%;
+          background-image:
+            radial-gradient(200px 70px at 90px 55%, rgba(206,214,226,0.22), transparent 72%),
+            radial-gradient(160px 60px at 280px 78%, rgba(206,214,226,0.20), transparent 72%);
+          animation: gw-fog-a 30s linear infinite;
+        }
+        .card.w-fog .fx::before {
+          content: ""; position: absolute; inset: 0; opacity: 0.9;
+          background-repeat: repeat-x;
+          background-size: 300px 100%;
+          background-image:
+            radial-gradient(180px 64px at 150px 38%, rgba(206,214,226,0.18), transparent 72%);
+          animation: gw-fog-b 46s linear infinite;
+        }
+        /* Wind: fast gust streaks plus slow high clouds. */
+        .card.w-windy .fx, .card.w-windy-variant .fx {
+          background-repeat: repeat;
+          background-size: 230px 74px;
+          background-image:
+            radial-gradient(46px 1.5px at 34px 16px, rgba(212,224,240,0.4), transparent),
+            radial-gradient(66px 1.7px at 150px 42px, rgba(212,224,240,0.34), transparent),
+            radial-gradient(36px 1.3px at 96px 60px, rgba(212,224,240,0.3), transparent);
+          animation: gw-gust 1.7s linear infinite;
+        }
+        .card.w-windy .fx::before, .card.w-windy-variant .fx::before {
+          content: ""; position: absolute; inset: 0; opacity: 0.7;
+          background-repeat: repeat-x;
+          background-size: 470px 100%;
+          background-image:
+            radial-gradient(110px 60px at 110px 40px, rgba(205,214,228,0.12), transparent 72%);
+          animation: gw-cloud-b 30s linear infinite;
+        }
         .card.w-lightning .fx::after, .card.w-lightning-rainy .fx::after {
           content: ""; position: absolute; inset: 0; opacity: 0;
           background: radial-gradient(140% 90% at 50% -5%, rgba(230,235,255,0.85), transparent 62%);
@@ -501,7 +549,11 @@ class GlanceWeatherCard extends HTMLElement {
         @keyframes gw-fall-b { to { background-position: 8px 104px; } }
         @keyframes gw-snow-a { to { background-position: 14px 100px; } }
         @keyframes gw-snow-b { to { background-position: -20px 140px; } }
-        @keyframes gw-drift { to { background-position: 220% 0; } }
+        @keyframes gw-cloud-a { to { background-position: 340px 0; } }
+        @keyframes gw-cloud-b { to { background-position: 470px 0; } }
+        @keyframes gw-fog-a { to { background-position: 360px 0; } }
+        @keyframes gw-fog-b { to { background-position: -300px 0; } }
+        @keyframes gw-gust { to { background-position: 230px 0; } }
         @keyframes gw-flash {
           0%, 90%, 100% { opacity: 0; }
           91% { opacity: 0.9; } 92% { opacity: 0.15; }
