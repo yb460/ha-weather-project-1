@@ -180,6 +180,10 @@ class GlanceWeatherCard extends HTMLElement {
   disconnectedCallback() {
     this._unsubscribe();
     this._detachReconnect();
+    if (this._healthTimer) {
+      clearInterval(this._healthTimer);
+      this._healthTimer = null;
+    }
   }
 
   getCardSize() {
@@ -201,12 +205,20 @@ class GlanceWeatherCard extends HTMLElement {
     if (!this._hass || !this.config || this._subscribed) return;
     this._subscribed = true;
     this._attachReconnect();
+    this._startHealthTimer();
     for (const type of ["daily", "hourly"]) {
       try {
         const unsub = await this._hass.connection.subscribeMessage(
           (event) => {
-            this._forecasts[type] = event.forecast || [];
-            this._update();
+            const fc = event && event.forecast;
+            // Ignore empty/absent pushes. These happen transiently when the
+            // websocket reconnects or the entity is briefly unavailable; taking
+            // them would blank the strips until a manual reload. Keeping the
+            // last good forecast means the strips never go empty.
+            if (Array.isArray(fc) && fc.length) {
+              this._forecasts[type] = fc;
+              this._update();
+            }
           },
           {
             type: "weather/subscribe_forecast",
@@ -220,6 +232,17 @@ class GlanceWeatherCard extends HTMLElement {
         console.warn(`glance-weather-card: ${type} forecast unavailable for ${this.config.entity}`, err);
       }
     }
+  }
+
+  // Safety net: periodically re-subscribe so the forecast can never stay stale
+  // or blank for long, even if a reconnect slips past the "ready" event.
+  _startHealthTimer() {
+    if (this._healthTimer) return;
+    this._healthTimer = setInterval(() => {
+      if (!this._hass) return;
+      this._unsubscribe();
+      this._subscribeForecasts();
+    }, 20 * 60 * 1000);
   }
 
   _unsubscribe() {
