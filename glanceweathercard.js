@@ -363,7 +363,11 @@ class GlanceWeatherCard extends HTMLElement {
             radial-gradient(120% 80% at 80% 0%, rgba(90,140,210,0.18), transparent 60%),
             linear-gradient(160deg, #1d2733 0%, #141a22 100%);
           font-family: var(--paper-font-body1_-_font-family, system-ui, sans-serif);
-          -webkit-font-smoothing: antialiased;
+          font-weight: 500;
+          /* Legible from across the room: heavier base weight and a subtle dark
+             shadow so light text keeps hard edges over the animated backdrop
+             (reads much sharper at a distance than thin, smoothed text). */
+          text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
         }
         /* Animated effect layer sits behind the content (absolute => excluded
            from the flex flow), content is lifted above it. */
@@ -592,14 +596,14 @@ class GlanceWeatherCard extends HTMLElement {
           height: 50px;
           flex: 0 0 auto;
         }
-        .hero .big-icon { --mdc-icon-size: 42px; color: #cfe0f5; flex: 0 0 auto; }
+        .hero .big-icon { --mdc-icon-size: 42px; color: #cfe0f5; flex: 0 0 auto; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.5)); }
         .hero .tempwrap { display: flex; flex-direction: column; justify-content: center; flex: 0 0 auto; }
-        .hero .temp { font-size: 38px; font-weight: 600; line-height: 1; }
-        .hero .feels { font-size: 10px; line-height: 1.1; opacity: 0.75; margin-top: 2px; white-space: nowrap; }
+        .hero .temp { font-size: 38px; font-weight: 700; line-height: 1; }
+        .hero .feels { font-size: 11px; font-weight: 600; line-height: 1.1; opacity: 0.92; margin-top: 2px; white-space: nowrap; }
         .hero .feels.hidden { display: none; }
         .hero .meta { display: flex; flex-direction: column; justify-content: center; gap: 3px; min-width: 0; }
         .hero .cond {
-          font-size: 12px; font-weight: 500; line-height: 1.2;
+          font-size: 12.5px; font-weight: 600; line-height: 1.2;
           white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
         }
         .hero .sub { display: flex; align-items: center; gap: 10px; }
@@ -611,8 +615,8 @@ class GlanceWeatherCard extends HTMLElement {
         .hero .pcp.hidden { display: none; }
         .spacer { flex: 1 1 auto; }
         .label {
-          font-size: 9px; letter-spacing: 0.6px; text-transform: uppercase;
-          opacity: 0.6; margin: 1px 0 0;
+          font-size: 9px; letter-spacing: 0.4px; text-transform: uppercase;
+          font-weight: 700; opacity: 0.82; margin: 1px 0 0;
         }
         /* Strips grow to share any extra height, so stretching the card just
            gives the rows more breathing room instead of leaving dead space. */
@@ -620,15 +624,15 @@ class GlanceWeatherCard extends HTMLElement {
         .row.hourly { grid-template-columns: repeat(${this._hourlyCount}, 1fr); }
         .row.daily { grid-template-columns: repeat(${this._dailyCount}, 1fr); }
         .cell { display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.15; }
-        .cell ha-icon { --mdc-icon-size: 18px; color: ${DEFAULT_ICON}; margin: 1px 0; }
-        .cell .t1 { font-size: 10px; opacity: 0.8; }
-        .cell .t2 { font-size: 11px; font-weight: 600; }
-        .cell .lo { font-size: 10px; opacity: 0.72; }
+        .cell ha-icon { --mdc-icon-size: 18px; color: ${DEFAULT_ICON}; margin: 1px 0; filter: drop-shadow(0 1px 1.5px rgba(0,0,0,0.5)); }
+        .cell .t1 { font-size: 10px; font-weight: 600; opacity: 0.92; }
+        .cell .t2 { font-size: 11px; font-weight: 700; }
+        .cell .lo { font-size: 10px; font-weight: 500; opacity: 0.86; }
         /* Humidity: always teal. Rain chance: always blue. Same everywhere. */
-        .cell .dh { font-size: 9px; font-weight: 600; line-height: 1.2; color: ${HUMIDITY_COLOR}; display: flex; align-items: center; gap: 2px; min-height: 11px; }
+        .cell .dh { font-size: 9px; font-weight: 700; line-height: 1.2; color: ${HUMIDITY_COLOR}; display: flex; align-items: center; gap: 2px; min-height: 11px; }
         .cell .dh ha-icon { --mdc-icon-size: 10px; color: ${HUMIDITY_COLOR}; margin: 0; }
         .cell .dh.hidden { visibility: hidden; }
-        .cell .pop { font-size: 9px; font-weight: 600; line-height: 1.2; color: ${RAIN_COLOR}; display: flex; align-items: center; gap: 2px; min-height: 11px; }
+        .cell .pop { font-size: 9px; font-weight: 700; line-height: 1.2; color: ${RAIN_COLOR}; display: flex; align-items: center; gap: 2px; min-height: 11px; }
         .cell .pop ha-icon { --mdc-icon-size: 10px; color: ${RAIN_COLOR}; margin: 0; }
         .cell .pop.hidden { visibility: hidden; }
         .unit { font-size: 0.55em; opacity: 0.8; vertical-align: top; }
