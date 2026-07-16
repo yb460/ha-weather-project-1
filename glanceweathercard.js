@@ -596,7 +596,7 @@ class GlanceWeatherCard extends HTMLElement {
           height: 50px;
           flex: 0 0 auto;
         }
-        .hero .big-icon { --mdc-icon-size: 42px; color: #cfe0f5; flex: 0 0 auto; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.5)); }
+        .hero .big-icon { --mdc-icon-size: 28px; color: #cfe0f5; flex: 0 0 auto; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.5)); }
         .hero .tempwrap { display: flex; flex-direction: column; justify-content: center; flex: 0 0 auto; }
         .hero .temp { font-size: 38px; font-weight: 700; line-height: 1; }
         .hero .feels { font-size: 11px; font-weight: 600; line-height: 1.1; opacity: 0.92; margin-top: 2px; white-space: nowrap; }
@@ -608,7 +608,7 @@ class GlanceWeatherCard extends HTMLElement {
         }
         .hero .sub { display: flex; align-items: center; gap: 10px; }
         .hero .hum, .hero .pcp { font-size: 12px; font-weight: 600; display: flex; align-items: center; gap: 3px; }
-        .hero .hum ha-icon, .hero .pcp ha-icon { --mdc-icon-size: 14px; }
+        .hero .hum ha-icon, .hero .pcp ha-icon { --mdc-icon-size: 11px; }
         .hero .hum { color: ${HUMIDITY_COLOR}; }
         .hero .hum ha-icon { color: ${HUMIDITY_COLOR}; }
         .hero .pcp { color: ${RAIN_COLOR}; }
@@ -624,16 +624,16 @@ class GlanceWeatherCard extends HTMLElement {
         .row.hourly { grid-template-columns: repeat(${this._hourlyCount}, 1fr); }
         .row.daily { grid-template-columns: repeat(${this._dailyCount}, 1fr); }
         .cell { display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.15; }
-        .cell ha-icon { --mdc-icon-size: 18px; color: ${DEFAULT_ICON}; margin: 1px 0; filter: drop-shadow(0 1px 1.5px rgba(0,0,0,0.5)); }
+        .cell ha-icon { --mdc-icon-size: 13px; color: ${DEFAULT_ICON}; margin: 1px 0; filter: drop-shadow(0 1px 1.5px rgba(0,0,0,0.5)); }
         .cell .t1 { font-size: 10px; font-weight: 600; opacity: 0.92; }
         .cell .t2 { font-size: 11px; font-weight: 700; }
         .cell .lo { font-size: 10px; font-weight: 500; opacity: 0.86; }
         /* Humidity: always teal. Rain chance: always blue. Same everywhere. */
         .cell .dh { font-size: 9px; font-weight: 700; line-height: 1.2; color: ${HUMIDITY_COLOR}; display: flex; align-items: center; gap: 2px; min-height: 11px; }
-        .cell .dh ha-icon { --mdc-icon-size: 10px; color: ${HUMIDITY_COLOR}; margin: 0; }
+        .cell .dh ha-icon { --mdc-icon-size: 8px; color: ${HUMIDITY_COLOR}; margin: 0; }
         .cell .dh.hidden { visibility: hidden; }
         .cell .pop { font-size: 9px; font-weight: 700; line-height: 1.2; color: ${RAIN_COLOR}; display: flex; align-items: center; gap: 2px; min-height: 11px; }
-        .cell .pop ha-icon { --mdc-icon-size: 10px; color: ${RAIN_COLOR}; margin: 0; }
+        .cell .pop ha-icon { --mdc-icon-size: 8px; color: ${RAIN_COLOR}; margin: 0; }
         .cell .pop.hidden { visibility: hidden; }
         .unit { font-size: 0.55em; opacity: 0.8; vertical-align: top; }
       </style>
