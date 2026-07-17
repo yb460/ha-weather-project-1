@@ -639,16 +639,16 @@ class GlanceWeatherCard extends HTMLElement {
            sensible default fallback, so each line is independently adjustable. */
         .hero .big-icon { --mdc-icon-size: var(--gw-hero-icon, 42px); color: #cfe0f5; flex: 0 0 auto; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.5)); }
         .hero .tempwrap { display: flex; flex-direction: column; justify-content: center; flex: 0 0 auto; }
-        .hero .temp { font-size: var(--gw-temp, 38px); font-weight: 700; line-height: 1; }
-        .hero .feels { font-size: var(--gw-feels, 11px); font-weight: 600; line-height: 1.1; opacity: 0.92; margin-top: 2px; white-space: nowrap; }
+        .hero .temp { font-size: var(--gw-temp, 38px); font-weight: 600; line-height: 1; }
+        .hero .feels { font-size: var(--gw-feels, 11px); font-weight: 500; line-height: 1.1; opacity: 0.9; margin-top: 2px; white-space: nowrap; }
         .hero .feels.hidden { display: none; }
         .hero .meta { display: flex; flex-direction: column; justify-content: center; gap: 3px; min-width: 0; }
         .hero .cond {
-          font-size: var(--gw-cond, 12.5px); font-weight: 600; line-height: 1.2;
+          font-size: var(--gw-cond, 12.5px); font-weight: 500; line-height: 1.2;
           white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
         }
         .hero .sub { display: flex; align-items: center; gap: 10px; }
-        .hero .hum, .hero .pcp { font-size: var(--gw-hero-detail, 12px); font-weight: 600; display: flex; align-items: center; gap: 3px; }
+        .hero .hum, .hero .pcp { font-size: var(--gw-hero-detail, 12px); font-weight: 500; display: flex; align-items: center; gap: 3px; }
         .hero .hum ha-icon, .hero .pcp ha-icon { --mdc-icon-size: 14px; }
         .hero .hum { color: ${HUMIDITY_COLOR}; }
         .hero .hum ha-icon { color: ${HUMIDITY_COLOR}; }
@@ -657,7 +657,7 @@ class GlanceWeatherCard extends HTMLElement {
         .spacer { flex: 1 1 auto; }
         .label {
           font-size: var(--gw-label, 9px); letter-spacing: 0.4px; text-transform: uppercase;
-          font-weight: 700; opacity: 0.82; margin: 1px 0 0;
+          font-weight: 600; opacity: 0.75; margin: 1px 0 0;
         }
         /* Each strip is a viewport (overflow hidden); the .track inside holds
            the cells and — when there are more than fit — slides continuously
@@ -665,22 +665,24 @@ class GlanceWeatherCard extends HTMLElement {
         .row { flex: 1 1 auto; overflow: hidden; }
         .track { display: flex; width: 100%; height: 100%; align-items: center; will-change: transform; }
         .track > .cell { flex: 1 1 0; min-width: 0; }
-        .cell { display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.15; }
+        .cell { display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.15; overflow: hidden; }
         .cell ha-icon { --mdc-icon-size: var(--gw-strip-icon, 18px); color: ${DEFAULT_ICON}; margin: 1px 0; filter: drop-shadow(0 1px 1.5px rgba(0,0,0,0.5)); }
-        .cell .t1 { font-weight: 600; opacity: 0.92; }
-        .cell .t2 { font-weight: 700; }
+        .cell .t1 { font-weight: 500; opacity: 0.9; }
+        .cell .t2 { font-weight: 600; }
         .row.hourly .cell .t1 { font-size: var(--gw-time, 10px); }
         .row.daily .cell .t1 { font-size: var(--gw-day, 10px); }
         .row.hourly .cell .t2 { font-size: var(--gw-htemp, 11px); }
         .row.daily .cell .t2 { font-size: var(--gw-dtemp, 11px); }
-        .cell .lo { font-size: var(--gw-dlow, 10px); font-weight: 500; opacity: 0.86; }
-        /* Humidity: always teal. Rain chance: always blue. Same everywhere. */
-        .cell .dh { font-size: var(--gw-metric, 9px); font-weight: 700; line-height: 1.2; color: ${HUMIDITY_COLOR}; display: flex; align-items: center; gap: 2px; min-height: 11px; }
-        .cell .dh ha-icon { --mdc-icon-size: 10px; color: ${HUMIDITY_COLOR}; margin: 0; }
-        .cell .dh.hidden { visibility: hidden; }
-        .cell .pop { font-size: var(--gw-metric, 9px); font-weight: 700; line-height: 1.2; color: ${RAIN_COLOR}; display: flex; align-items: center; gap: 2px; min-height: 11px; }
-        .cell .pop ha-icon { --mdc-icon-size: 10px; color: ${RAIN_COLOR}; margin: 0; }
-        .cell .pop.hidden { visibility: hidden; }
+        .cell .lo { font-size: var(--gw-dlow, 10px); font-weight: 400; opacity: 0.82; }
+        /* Rain (blue) + humidity (teal) share ONE row to save vertical space;
+           when only one is present it centers. */
+        /* Rain (blue) + humidity (teal) on one compact row; color tells them
+           apart so no per-item icon is needed (keeps it narrow). */
+        .cell .metrics { display: flex; align-items: center; justify-content: center; gap: 4px; min-height: 12px; max-width: 100%; white-space: nowrap; }
+        .cell .dh, .cell .pop { font-size: var(--gw-metric, 9px); font-weight: 600; line-height: 1.2; }
+        .cell .dh { color: ${HUMIDITY_COLOR}; }
+        .cell .pop { color: ${RAIN_COLOR}; }
+        .cell .dh.hidden, .cell .pop.hidden { display: none; }
         .unit { font-size: 0.55em; opacity: 0.8; vertical-align: top; }
       </style>
       <div class="card">
@@ -805,8 +807,10 @@ class GlanceWeatherCard extends HTMLElement {
           <span class="t1">${this._fmtHour(f.datetime)}</span>
           <ha-icon icon="${iconFor(cond)}" style="color:${iconColorFor(cond)}"></ha-icon>
           <span class="t2">${this._round(f.temperature)}°</span>
-          <span class="pop${pop ? "" : " hidden"}"><ha-icon icon="mdi:weather-pouring"></ha-icon>${pop}</span>
-          <span class="dh${rh ? "" : " hidden"}"><ha-icon icon="mdi:water-percent"></ha-icon>${rh}</span>
+          <div class="metrics">
+            <span class="pop${pop ? "" : " hidden"}">${pop}</span>
+            <span class="dh${rh ? "" : " hidden"}">${rh}</span>
+          </div>
         </div>`;
     });
   }
@@ -824,8 +828,10 @@ class GlanceWeatherCard extends HTMLElement {
           <ha-icon icon="${iconFor(f.condition)}" style="color:${iconColorFor(f.condition)}"></ha-icon>
           <span class="t2">${this._round(f.temperature)}°</span>
           <span class="lo">${this._round(f.templow)}°</span>
-          <span class="pop${pop ? "" : " hidden"}"><ha-icon icon="mdi:weather-pouring"></ha-icon>${pop}</span>
-          <span class="dh${rh ? "" : " hidden"}"><ha-icon icon="mdi:water-percent"></ha-icon>${rh}</span>
+          <div class="metrics">
+            <span class="pop${pop ? "" : " hidden"}">${pop}</span>
+            <span class="dh${rh ? "" : " hidden"}">${rh}</span>
+          </div>
         </div>`;
     });
   }
@@ -964,15 +970,19 @@ class GlanceWeatherCardEditor extends HTMLElement {
 }
 customElements.define("glance-weather-card-editor", GlanceWeatherCardEditor);
 
+// Bump on notable changes; printed to the console so two devices can be
+// compared to catch a stale cached copy.
+const CARD_VERSION = "1.5.0";
+
 window.customCards = window.customCards || [];
 window.customCards.push({
   type: "glance-weather-card",
   name: "Glance Weather Card",
-  description: "Fixed-size at-a-glance weather: current + 12h hourly + 7-day daily.",
+  description: "At-a-glance weather: current + hourly + daily, with animated weather backdrops.",
 });
 
 console.info(
-  "%c glance-weather-card %c loaded ",
+  `%c glance-weather-card %c v${CARD_VERSION} `,
   "background:#2d6cdf;color:#fff;border-radius:3px 0 0 3px;padding:2px 4px",
   "background:#1d2733;color:#cfe0f5;border-radius:0 3px 3px 0;padding:2px 4px"
 );
