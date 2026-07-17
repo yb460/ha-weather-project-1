@@ -405,6 +405,14 @@ class GlanceWeatherCard extends HTMLElement {
              (reads much sharper at a distance than thin, smoothed text). */
           text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
         }
+        /* Tiny version marker pinned to the top-left corner (readable on a
+           kiosk with no console). Toggle with show_version. */
+        .ver {
+          position: absolute; top: 1px; left: 6px; z-index: 3;
+          font-size: 8px; font-weight: 500; letter-spacing: 0.2px;
+          opacity: 0.4; pointer-events: none; text-shadow: 0 1px 1px rgba(0,0,0,0.6);
+        }
+        .ver.hidden { display: none; }
         /* Animated effect layer sits behind the content (absolute => excluded
            from the flex flow), content is lifted above it. */
         .fx { position: absolute; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
@@ -687,6 +695,7 @@ class GlanceWeatherCard extends HTMLElement {
       </style>
       <div class="card">
         <div class="fx"></div>
+        <div class="ver${this.config.show_version === false ? " hidden" : ""}">${CARD_VERSION}</div>
         <div class="hero">
           <ha-icon class="big-icon"></ha-icon>
           <div class="tempwrap">
@@ -870,6 +879,7 @@ const EDITOR_SCHEMA = [
       { name: "height", selector: px(100, 1400) },
     ],
   },
+  { name: "show_version", selector: { boolean: {} } },
   {
     name: "", type: "grid",
     schema: [
@@ -900,6 +910,7 @@ const EDITOR_LABELS = {
   scroll_interval: "Auto-rotate every",
   width: "Width (blank = fill cell)",
   height: "Height (blank = fill cell)",
+  show_version: "Show version marker (top-left)",
   hero_icon_size: "Big weather icon",
   temp_size: "Current temperature",
   feels_size: "Real-feel line",
@@ -920,6 +931,7 @@ const EDITOR_DEFAULTS = {
   daily_count: "7", daily_visible: "= total (all shown)",
   scroll_interval: "3 s per column",
   width: "blank = fill cell", height: "blank = fill cell",
+  show_version: "on by default",
   hero_icon_size: "42px", temp_size: "38px", feels_size: "11px",
   condition_size: "12.5px", hero_detail_size: "12px", label_size: "9px",
   strip_icon_size: "18px", time_size: "10px", hourly_temp_size: "11px",
