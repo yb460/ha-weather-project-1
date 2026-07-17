@@ -177,9 +177,8 @@ class GlanceWeatherCard extends HTMLElement {
     // total count the strip auto-rotates through the rest.
     this._hourlyVisible = clampInt(config.hourly_visible ?? this._hourlyCount, 1, this._hourlyCount);
     this._dailyVisible = clampInt(config.daily_visible ?? this._dailyCount, 1, this._dailyCount);
-    this._scrollInterval = Math.max(1, Number(config.scroll_interval) || 4);
-    this._hourlyPage = 0;
-    this._dailyPage = 0;
+    // Seconds for one column to slide past (continuous scroll speed).
+    this._scrollInterval = Math.max(0.2, Number(config.scroll_interval) || 3);
     // width/height are optional. When omitted the card fills its dashboard
     // cell, so it can be freely resized (e.g. drag-resized in a Sections
     // dashboard). Set explicit px to pin it to a fixed size instead.
@@ -189,7 +188,6 @@ class GlanceWeatherCard extends HTMLElement {
     this._unsubscribe();
     this._buildSkeleton();
     this._applySizeVars();
-    this._setupScroll();
     if (this._hass) {
       this._subscribeForecasts();
       this._update();
@@ -213,7 +211,6 @@ class GlanceWeatherCard extends HTMLElement {
       clearInterval(this._healthTimer);
       this._healthTimer = null;
     }
-    this._clearScroll();
   }
 
   // Push per-element size overrides from config onto the host as CSS variables.
@@ -223,40 +220,6 @@ class GlanceWeatherCard extends HTMLElement {
       if (v === undefined || v === null || v === "" || isNaN(v)) this.style.removeProperty(cssVar);
       else this.style.setProperty(cssVar, `${Number(v)}px`);
     }
-  }
-
-  _clearScroll() {
-    if (this._hourlyTimer) clearInterval(this._hourlyTimer);
-    if (this._dailyTimer) clearInterval(this._dailyTimer);
-    this._hourlyTimer = null;
-    this._dailyTimer = null;
-  }
-
-  // Auto-rotate a strip when it shows fewer columns than its total count.
-  _setupScroll() {
-    this._clearScroll();
-    const step = this._scrollInterval * 1000;
-    if (this._hourlyVisible < this._hourlyCount) {
-      this._hourlyTimer = setInterval(() => {
-        const pages = Math.ceil(this._hourlyCount / this._hourlyVisible);
-        this._hourlyPage = (this._hourlyPage + 1) % pages;
-        this._renderHourly();
-      }, step);
-    }
-    if (this._dailyVisible < this._dailyCount) {
-      this._dailyTimer = setInterval(() => {
-        const pages = Math.ceil(this._dailyCount / this._dailyVisible);
-        this._dailyPage = (this._dailyPage + 1) % pages;
-        this._renderDaily();
-      }, step);
-    }
-  }
-
-  // Start index of the visible window for a given page (full windows, clamped).
-  _windowStart(len, visible, page) {
-    const pages = Math.max(1, Math.ceil(len / visible));
-    const start = (page % pages) * visible;
-    return Math.min(start, Math.max(0, len - visible));
   }
 
   getCardSize() {
@@ -659,8 +622,11 @@ class GlanceWeatherCard extends HTMLElement {
           91% { opacity: 0.9; } 92% { opacity: 0.15; }
           93% { opacity: 0.75; } 94% { opacity: 0; }
         }
+        /* Continuous strip scroll: the track holds two copies, so sliding by
+           half its width loops seamlessly. */
+        @keyframes gw-marquee { to { transform: translateX(-50%); } }
         @media (prefers-reduced-motion: reduce) {
-          .fx, .fx::before, .fx::after { animation: none !important; }
+          .fx, .fx::before, .fx::after, .track { animation: none !important; }
         }
         .hero {
           display: flex;
@@ -693,11 +659,12 @@ class GlanceWeatherCard extends HTMLElement {
           font-size: var(--gw-label, 9px); letter-spacing: 0.4px; text-transform: uppercase;
           font-weight: 700; opacity: 0.82; margin: 1px 0 0;
         }
-        /* Strips grow to share any extra height, so stretching the card just
-           gives the rows more breathing room instead of leaving dead space. */
-        .row { display: grid; gap: 1px; flex: 1 1 auto; align-content: center; }
-        .row.hourly { grid-template-columns: repeat(${this._hourlyVisible}, 1fr); }
-        .row.daily { grid-template-columns: repeat(${this._dailyVisible}, 1fr); }
+        /* Each strip is a viewport (overflow hidden); the .track inside holds
+           the cells and — when there are more than fit — slides continuously
+           (marquee). Rows grow to share extra height. */
+        .row { flex: 1 1 auto; overflow: hidden; }
+        .track { display: flex; width: 100%; height: 100%; align-items: center; will-change: transform; }
+        .track > .cell { flex: 1 1 0; min-width: 0; }
         .cell { display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.15; }
         .cell ha-icon { --mdc-icon-size: var(--gw-strip-icon, 18px); color: ${DEFAULT_ICON}; margin: 1px 0; filter: drop-shadow(0 1px 1.5px rgba(0,0,0,0.5)); }
         .cell .t1 { font-weight: 600; opacity: 0.92; }
@@ -733,9 +700,9 @@ class GlanceWeatherCard extends HTMLElement {
           </div>
         </div>
         <div class="label">Next ${this._hourlyCount} hours</div>
-        <div class="row hourly"></div>
+        <div class="row hourly"><div class="track"></div></div>
         <div class="label">${this._dailyCount}-day</div>
-        <div class="row daily"></div>
+        <div class="row daily"><div class="track"></div></div>
       </div>
     `;
     this._built = true;
@@ -806,20 +773,34 @@ class GlanceWeatherCard extends HTMLElement {
     this._renderDaily();
   }
 
-  // ---- Hourly strip (windowed for auto-scroll) ----
+  // Build a strip's track. When there are more items than fit, the cells are
+  // duplicated and the track continuously slides (a real marquee, looping
+  // seamlessly), showing `visible` columns at a time. Otherwise it's static.
+  _renderStrip(rowSel, pool, visible, cellFn) {
+    const track = this.shadowRoot.querySelector(`${rowSel} .track`);
+    if (!track) return;
+    const n = pool.length;
+    const cells = pool.map(cellFn).join("");
+    const scrolling = n > 0 && visible < n;
+    if (scrolling) {
+      track.innerHTML = cells + cells; // duplicate for a seamless loop
+      track.style.width = `${((2 * n) / visible) * 100}%`;
+      track.style.animation = `gw-marquee ${(n * this._scrollInterval).toFixed(2)}s linear infinite`;
+    } else {
+      track.innerHTML = cells;
+      track.style.width = n ? `${(n / visible) * 100}%` : "100%";
+      track.style.animation = "";
+    }
+  }
+
   _renderHourly() {
     if (!this._built || !this._hass) return;
-    const el = this.shadowRoot.querySelector(".row.hourly");
-    if (!el) return;
     const pool = (this._forecasts.hourly || []).slice(0, this._hourlyCount);
-    const start = this._windowStart(pool.length, this._hourlyVisible, this._hourlyPage);
-    el.innerHTML = pool
-      .slice(start, start + this._hourlyVisible)
-      .map((f) => {
-        const cond = this._isNight(f.datetime) ? nightCondition(f.condition) : f.condition;
-        const pop = popText(f);
-        const rh = humText(f);
-        return `
+    this._renderStrip(".row.hourly", pool, this._hourlyVisible, (f) => {
+      const cond = this._isNight(f.datetime) ? nightCondition(f.condition) : f.condition;
+      const pop = popText(f);
+      const rh = humText(f);
+      return `
         <div class="cell">
           <span class="t1">${this._fmtHour(f.datetime)}</span>
           <ha-icon icon="${iconFor(cond)}" style="color:${iconColorFor(cond)}"></ha-icon>
@@ -827,34 +808,26 @@ class GlanceWeatherCard extends HTMLElement {
           <span class="pop${pop ? "" : " hidden"}"><ha-icon icon="mdi:weather-pouring"></ha-icon>${pop}</span>
           <span class="dh${rh ? "" : " hidden"}"><ha-icon icon="mdi:water-percent"></ha-icon>${rh}</span>
         </div>`;
-      })
-      .join("");
+    });
   }
 
-  // ---- Daily strip (windowed for auto-scroll) ----
   _renderDaily() {
     if (!this._built || !this._hass) return;
-    const el = this.shadowRoot.querySelector(".row.daily");
-    if (!el) return;
     const pool = (this._forecasts.daily || []).slice(0, this._dailyCount);
-    const start = this._windowStart(pool.length, this._dailyVisible, this._dailyPage);
-    el.innerHTML = pool
-      .slice(start, start + this._dailyVisible)
-      .map((f, j) => {
-        const pop = popText(f);
-        const rh = humText(f);
-        // Pass the absolute index so only the real first day shows "Today".
-        return `
+    this._renderStrip(".row.daily", pool, this._dailyVisible, (f, i) => {
+      const pop = popText(f);
+      const rh = humText(f);
+      // i is the index within the pool, so only the real first day is "Today".
+      return `
         <div class="cell">
-          <span class="t1">${this._fmtDay(f.datetime, start + j)}</span>
+          <span class="t1">${this._fmtDay(f.datetime, i)}</span>
           <ha-icon icon="${iconFor(f.condition)}" style="color:${iconColorFor(f.condition)}"></ha-icon>
           <span class="t2">${this._round(f.temperature)}°</span>
           <span class="lo">${this._round(f.templow)}°</span>
           <span class="pop${pop ? "" : " hidden"}"><ha-icon icon="mdi:weather-pouring"></ha-icon>${pop}</span>
           <span class="dh${rh ? "" : " hidden"}"><ha-icon icon="mdi:water-percent"></ha-icon>${rh}</span>
         </div>`;
-      })
-      .join("");
+    });
   }
 }
 
@@ -935,6 +908,20 @@ const EDITOR_LABELS = {
   daily_low_size: "Daily low",
   metric_size: "Strip rain / humidity",
 };
+// Baselines shown under each field so you know what you're adjusting from.
+const EDITOR_DEFAULTS = {
+  hourly_count: "12", hourly_visible: "= total (all shown)",
+  daily_count: "7", daily_visible: "= total (all shown)",
+  scroll_interval: "3 s per column",
+  width: "blank = fill cell", height: "blank = fill cell",
+  hero_icon_size: "42px", temp_size: "38px", feels_size: "11px",
+  condition_size: "12.5px", hero_detail_size: "12px", label_size: "9px",
+  strip_icon_size: "18px", time_size: "10px", hourly_temp_size: "11px",
+  day_size: "10px", daily_temp_size: "11px", daily_low_size: "10px",
+  metric_size: "9px",
+};
+const editorHelper = (s) =>
+  EDITOR_DEFAULTS[s.name] ? `Default: ${EDITOR_DEFAULTS[s.name]}` : undefined;
 
 class GlanceWeatherCardEditor extends HTMLElement {
   setConfig(config) {
@@ -956,6 +943,7 @@ class GlanceWeatherCardEditor extends HTMLElement {
     const form = document.createElement("ha-form");
     form.schema = EDITOR_SCHEMA;
     form.computeLabel = (s) => EDITOR_LABELS[s.name] || s.name;
+    form.computeHelper = editorHelper;
     if (this._hass) form.hass = this._hass;
     if (this._config) form.data = this._config;
     form.addEventListener("value-changed", (ev) => {
