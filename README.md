@@ -86,6 +86,19 @@ entity: weather.home   # any weather.* entity
 **Auto-scroll:** set e.g. `hourly_visible: 6` with `hourly_count: 12` to show 6
 hours at a time and rotate through all 12 (hourly and daily are independent).
 
+**Optional extras** (all toggles/pickers in the editor):
+
+| Option               | Description                                                         |
+| -------------------- | ----------------------------------------------------------------- |
+| `show_today_highlow` | Show today's high / low in the hero                                |
+| `show_wind`          | Show wind speed + a direction arrow (needs `wind_speed`)           |
+| `show_sun`           | Show sunrise / sunset (uses `sun.sun`)                             |
+| `highlight_now`      | Highlight the current hour in the hourly strip (default on)        |
+| `alert_entity`       | Show a pulsing alert banner while this entity is in an active state |
+| `aqi_entity`         | Show a color-coded AQI chip from this sensor                        |
+| `moon_entity`        | Use the real moon phase for the icon on clear nights               |
+| `show_version`       | Tiny version marker, top-left (default on)                         |
+
 The hero shows a **"Feels" (real-feel) temperature** under the main temperature
 when the weather entity provides `apparent_temperature` (or you set
 `apparent_temperature_entity`).

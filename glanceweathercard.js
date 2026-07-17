@@ -124,6 +124,23 @@ const humText = (f) => {
 
 const clampInt = (v, lo, hi) => Math.max(lo, Math.min(hi, Math.round(Number(v) || lo)));
 
+// Moon phase icons (from a Moon integration sensor, e.g. sensor.moon).
+const MOON_ICONS = {
+  new_moon: "mdi:moon-new",
+  waxing_crescent: "mdi:moon-waxing-crescent",
+  first_quarter: "mdi:moon-first-quarter",
+  waxing_gibbous: "mdi:moon-waxing-gibbous",
+  full_moon: "mdi:moon-full",
+  waning_gibbous: "mdi:moon-waning-gibbous",
+  last_quarter: "mdi:moon-last-quarter",
+  waning_crescent: "mdi:moon-waning-crescent",
+};
+
+// US-AQI style color bands for an air-quality chip.
+const aqiColor = (v) =>
+  v <= 50 ? "#5fd38a" : v <= 100 ? "#e6c84a" : v <= 150 ? "#ef9a4a"
+  : v <= 200 ? "#ef6a6a" : v <= 300 ? "#b06adf" : "#a05a6a";
+
 // Config keys -> CSS custom properties, so every element's size is adjustable
 // from the card editor. Unset keys fall back to the defaults baked into the CSS.
 const SIZE_VARS = {
@@ -324,6 +341,16 @@ class GlanceWeatherCard extends HTMLElement {
 
   _lang() {
     return this._hass?.locale?.language || navigator.language || "en";
+  }
+
+  _fmtClock(dt) {
+    const d = new Date(dt);
+    let h = d.getHours();
+    const m = d.getMinutes();
+    const ampm = h >= 12 ? "p" : "a";
+    h = h % 12;
+    if (h === 0) h = 12;
+    return `${h}:${String(m).padStart(2, "0")}${ampm}`;
   }
 
   _fmtHour(dt) {
@@ -634,7 +661,7 @@ class GlanceWeatherCard extends HTMLElement {
            half its width loops seamlessly. */
         @keyframes gw-marquee { to { transform: translateX(-50%); } }
         @media (prefers-reduced-motion: reduce) {
-          .fx, .fx::before, .fx::after, .track { animation: none !important; }
+          .fx, .fx::before, .fx::after, .track, .alert { animation: none !important; }
         }
         .hero {
           display: flex;
@@ -662,6 +689,32 @@ class GlanceWeatherCard extends HTMLElement {
         .hero .hum ha-icon { color: ${HUMIDITY_COLOR}; }
         .hero .pcp { color: ${RAIN_COLOR}; }
         .hero .pcp.hidden { display: none; }
+        /* Optional hero chips: high/low, wind, sun times, air quality. */
+        .hero .sub { flex-wrap: wrap; }
+        .hero .hl, .hero .wind, .hero .suninfo, .hero .aqi {
+          font-size: var(--gw-hero-detail, 12px); font-weight: 500;
+          display: flex; align-items: center; gap: 3px; opacity: 0.9;
+        }
+        .hero .hl .hival { font-weight: 700; }
+        .hero .hl .loval { opacity: 0.7; }
+        .hero .wind ha-icon, .hero .suninfo ha-icon { --mdc-icon-size: 13px; opacity: 0.85; }
+        .hero .wind .windarrow { --mdc-icon-size: 12px; }
+        .hero .aqi { font-weight: 600; }
+        .hero .hidden { display: none; }
+        /* Weather alert banner: a thin pulsing bar above the hero when active. */
+        .alert {
+          flex: 0 0 auto; display: flex; align-items: center; gap: 5px;
+          font-size: 11px; font-weight: 700; color: #fff;
+          background: linear-gradient(90deg, #b3261e, #d0392f);
+          border-radius: 7px; padding: 2px 8px; margin-bottom: 2px;
+          white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+          animation: gw-alertpulse 1.8s ease-in-out infinite;
+        }
+        .alert ha-icon { --mdc-icon-size: 14px; }
+        .alert.hidden { display: none; }
+        @keyframes gw-alertpulse { 0%,100% { filter: brightness(1); } 50% { filter: brightness(1.25); } }
+        /* Highlight the current (first) hour. */
+        .cell.now { background: rgba(255,255,255,0.08); border-radius: 8px; }
         .spacer { flex: 1 1 auto; }
         .label {
           font-size: var(--gw-label, 9px); letter-spacing: 0.4px; text-transform: uppercase;
@@ -696,6 +749,7 @@ class GlanceWeatherCard extends HTMLElement {
       <div class="card">
         <div class="fx"></div>
         <div class="ver${this.config.show_version === false ? " hidden" : ""}">${CARD_VERSION}</div>
+        <div class="alert hidden"><ha-icon icon="mdi:alert"></ha-icon><span class="alertval"></span></div>
         <div class="hero">
           <ha-icon class="big-icon"></ha-icon>
           <div class="tempwrap">
@@ -707,6 +761,10 @@ class GlanceWeatherCard extends HTMLElement {
             <div class="sub">
               <span class="hum"><ha-icon icon="mdi:water-percent"></ha-icon><span class="humval">–</span></span>
               <span class="pcp hidden"><ha-icon icon="mdi:weather-pouring"></ha-icon><span class="pcpval"></span></span>
+              <span class="hl hidden"><span class="hival"></span> <span class="loval"></span></span>
+              <span class="wind hidden"><ha-icon icon="mdi:weather-windy"></ha-icon><span class="windval"></span><ha-icon class="windarrow" icon="mdi:navigation"></ha-icon></span>
+              <span class="suninfo hidden"><ha-icon icon="mdi:weather-sunset-up"></ha-icon><span class="sunrise"></span><ha-icon icon="mdi:weather-sunset-down"></ha-icon><span class="sunset"></span></span>
+              <span class="aqi hidden">AQI&nbsp;<span class="aqival"></span></span>
             </div>
           </div>
         </div>
@@ -736,6 +794,15 @@ class GlanceWeatherCard extends HTMLElement {
     const heroIcon = root.querySelector(".big-icon");
     heroIcon.setAttribute("icon", iconFor(heroCond));
     heroIcon.style.color = iconColorFor(heroCond);
+    // On a clear/partly-clear night, show the actual moon phase if configured.
+    if (this.config.moon_entity && (heroCond === "clear-night" || heroCond === "partlycloudy-night")) {
+      const m = this._hass.states[this.config.moon_entity];
+      const mi = m && MOON_ICONS[m.state];
+      if (mi) {
+        heroIcon.setAttribute("icon", mi);
+        heroIcon.style.color = "#cdd7ff";
+      }
+    }
     // Build via textContent (not innerHTML) so the unit string, which comes
     // from entity attributes, can never inject markup.
     const tempEl = root.querySelector(".temp");
@@ -780,8 +847,77 @@ class GlanceWeatherCard extends HTMLElement {
       pcpEl.classList.add("hidden");
     }
 
+    this._updateHeroExtras(st);
     this._renderHourly();
     this._renderDaily();
+  }
+
+  // Optional hero chips + alert banner, each shown only when enabled/available.
+  _updateHeroExtras(st) {
+    const root = this.shadowRoot;
+    const cfg = this.config;
+    const toggle = (sel, show) => root.querySelector(sel).classList.toggle("hidden", !show);
+
+    // Today's high / low from the daily forecast.
+    const today = (this._forecasts.daily || [])[0];
+    const hlOk = cfg.show_today_highlow && today &&
+      today.temperature != null && !isNaN(today.temperature) &&
+      today.templow != null && !isNaN(today.templow);
+    if (hlOk) {
+      root.querySelector(".hl .hival").textContent = `H${Math.round(today.temperature)}°`;
+      root.querySelector(".hl .loval").textContent = `L${Math.round(today.templow)}°`;
+    }
+    toggle(".hl", hlOk);
+
+    // Wind speed + a direction arrow (bearing is where wind comes FROM, so the
+    // arrow — which points down by default — is rotated to show where it goes).
+    const ws = st.attributes.wind_speed;
+    const windOk = cfg.show_wind && ws != null && ws !== "" && !isNaN(ws);
+    if (windOk) {
+      const wu = st.attributes.wind_speed_unit || "";
+      root.querySelector(".wind .windval").textContent = `${Math.round(ws)}${wu ? " " + wu : ""}`;
+      const arrow = root.querySelector(".wind .windarrow");
+      const bearing = Number(st.attributes.wind_bearing);
+      if (!isNaN(bearing)) {
+        arrow.style.transform = `rotate(${(bearing + 180) % 360}deg)`;
+        arrow.classList.remove("hidden");
+      } else {
+        arrow.classList.add("hidden");
+      }
+    }
+    toggle(".wind", windOk);
+
+    // Sunrise / sunset from sun.sun.
+    const sun = this._hass.states["sun.sun"];
+    const sunOk = cfg.show_sun && sun && sun.attributes &&
+      (sun.attributes.next_rising || sun.attributes.next_setting);
+    if (sunOk) {
+      root.querySelector(".suninfo .sunrise").textContent =
+        sun.attributes.next_rising ? this._fmtClock(sun.attributes.next_rising) : "–";
+      root.querySelector(".suninfo .sunset").textContent =
+        sun.attributes.next_setting ? this._fmtClock(sun.attributes.next_setting) : "–";
+    }
+    toggle(".suninfo", sunOk);
+
+    // Air-quality chip from a sensor.
+    const aqiS = cfg.aqi_entity && this._hass.states[cfg.aqi_entity];
+    const aqiOk = aqiS && aqiS.state != null && aqiS.state !== "" && !isNaN(aqiS.state);
+    if (aqiOk) {
+      const v = Math.round(Number(aqiS.state));
+      root.querySelector(".aqival").textContent = v;
+      root.querySelector(".aqi").style.color = aqiColor(v);
+    }
+    toggle(".aqi", aqiOk);
+
+    // Weather-alert banner from an entity (active when it's not an "off" state).
+    const alertS = cfg.alert_entity && this._hass.states[cfg.alert_entity];
+    const off = ["off", "unknown", "unavailable", "none", "0", "", "no"];
+    const active = alertS && !off.includes(String(alertS.state).toLowerCase());
+    if (active) {
+      root.querySelector(".alertval").textContent =
+        alertS.attributes.event || alertS.attributes.friendly_name || alertS.state;
+    }
+    toggle(".alert", active);
   }
 
   // Build a strip's track. When there are more items than fit, the cells are
@@ -807,12 +943,14 @@ class GlanceWeatherCard extends HTMLElement {
   _renderHourly() {
     if (!this._built || !this._hass) return;
     const pool = (this._forecasts.hourly || []).slice(0, this._hourlyCount);
-    this._renderStrip(".row.hourly", pool, this._hourlyVisible, (f) => {
+    const markNow = this.config.highlight_now !== false;
+    this._renderStrip(".row.hourly", pool, this._hourlyVisible, (f, i) => {
       const cond = this._isNight(f.datetime) ? nightCondition(f.condition) : f.condition;
       const pop = popText(f);
       const rh = humText(f);
+      const now = markNow && i === 0 ? " now" : "";
       return `
-        <div class="cell">
+        <div class="cell${now}">
           <span class="t1">${this._fmtHour(f.datetime)}</span>
           <ha-icon icon="${iconFor(cond)}" style="color:${iconColorFor(cond)}"></ha-icon>
           <span class="t2">${this._round(f.temperature)}°</span>
@@ -879,7 +1017,24 @@ const EDITOR_SCHEMA = [
       { name: "height", selector: px(100, 1400) },
     ],
   },
-  { name: "show_version", selector: { boolean: {} } },
+  {
+    name: "", type: "grid",
+    schema: [
+      { name: "show_today_highlow", selector: { boolean: {} } },
+      { name: "show_wind", selector: { boolean: {} } },
+      { name: "show_sun", selector: { boolean: {} } },
+      { name: "highlight_now", selector: { boolean: {} } },
+      { name: "show_version", selector: { boolean: {} } },
+    ],
+  },
+  {
+    name: "", type: "grid",
+    schema: [
+      { name: "alert_entity", selector: { entity: {} } },
+      { name: "aqi_entity", selector: { entity: { domain: ["sensor"] } } },
+      { name: "moon_entity", selector: { entity: { domain: ["sensor"] } } },
+    ],
+  },
   {
     name: "", type: "grid",
     schema: [
@@ -911,6 +1066,13 @@ const EDITOR_LABELS = {
   width: "Width (blank = fill cell)",
   height: "Height (blank = fill cell)",
   show_version: "Show version marker (top-left)",
+  show_today_highlow: "Show today's high / low",
+  show_wind: "Show wind (speed + direction)",
+  show_sun: "Show sunrise / sunset",
+  highlight_now: "Highlight the current hour",
+  alert_entity: "Weather-alert entity (banner when active)",
+  aqi_entity: "Air-quality (AQI) sensor",
+  moon_entity: "Moon-phase sensor (night icon)",
   hero_icon_size: "Big weather icon",
   temp_size: "Current temperature",
   feels_size: "Real-feel line",
@@ -932,6 +1094,9 @@ const EDITOR_DEFAULTS = {
   scroll_interval: "3 s per column",
   width: "blank = fill cell", height: "blank = fill cell",
   show_version: "on by default",
+  highlight_now: "on by default", show_today_highlow: "off",
+  show_wind: "needs wind_speed", show_sun: "uses sun.sun",
+  alert_entity: "optional", aqi_entity: "optional", moon_entity: "optional",
   hero_icon_size: "42px", temp_size: "38px", feels_size: "11px",
   condition_size: "12.5px", hero_detail_size: "12px", label_size: "9px",
   strip_icon_size: "18px", time_size: "10px", hourly_temp_size: "11px",
