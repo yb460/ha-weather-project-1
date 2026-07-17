@@ -22,6 +22,10 @@ jobs:
       - name: Compute version tag
         id: ver
         run: echo "tag=v$(date -u +'%Y.%m.%d.%H%M%S')" >> "$GITHUB_OUTPUT"
+      - name: Stamp version into the card
+        run: |
+          sed -i "s/const CARD_VERSION = \"[^\"]*\";/const CARD_VERSION = \"${{ steps.ver.outputs.tag }}\";/" glanceweathercard.js
+          grep -n "CARD_VERSION =" glanceweathercard.js
       - name: Create release
         uses: softprops/action-gh-release@v2
         with:

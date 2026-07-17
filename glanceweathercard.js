@@ -970,9 +970,10 @@ class GlanceWeatherCardEditor extends HTMLElement {
 }
 customElements.define("glance-weather-card-editor", GlanceWeatherCardEditor);
 
-// Bump on notable changes; printed to the console so two devices can be
-// compared to catch a stale cached copy.
-const CARD_VERSION = "1.5.0";
+// Stamped with the date-based release version by the release workflow (shows
+// "dev" for un-released local builds). Printed to the console so two devices —
+// and HACS — can be compared to catch a stale cached copy.
+const CARD_VERSION = "dev";
 
 window.customCards = window.customCards || [];
 window.customCards.push({
@@ -982,7 +983,7 @@ window.customCards.push({
 });
 
 console.info(
-  `%c glance-weather-card %c v${CARD_VERSION} `,
+  `%c glance-weather-card %c ${CARD_VERSION} `,
   "background:#2d6cdf;color:#fff;border-radius:3px 0 0 3px;padding:2px 4px",
   "background:#1d2733;color:#cfe0f5;border-radius:0 3px 3px 0;padding:2px 4px"
 );
