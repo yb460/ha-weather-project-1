@@ -122,6 +122,26 @@ const humText = (f) => {
   return h === null || h === undefined || h === "" || isNaN(h) ? "" : `${Math.round(h)}%`;
 };
 
+const clampInt = (v, lo, hi) => Math.max(lo, Math.min(hi, Math.round(Number(v) || lo)));
+
+// Config keys -> CSS custom properties, so every element's size is adjustable
+// from the card editor. Unset keys fall back to the defaults baked into the CSS.
+const SIZE_VARS = {
+  hero_icon_size: "--gw-hero-icon",
+  temp_size: "--gw-temp",
+  feels_size: "--gw-feels",
+  condition_size: "--gw-cond",
+  hero_detail_size: "--gw-hero-detail",
+  label_size: "--gw-label",
+  strip_icon_size: "--gw-strip-icon",
+  time_size: "--gw-time",
+  hourly_temp_size: "--gw-htemp",
+  day_size: "--gw-day",
+  daily_temp_size: "--gw-dtemp",
+  daily_low_size: "--gw-dlow",
+  metric_size: "--gw-metric",
+};
+
 class GlanceWeatherCard extends HTMLElement {
   constructor() {
     super();
@@ -153,6 +173,13 @@ class GlanceWeatherCard extends HTMLElement {
     this.config = config;
     this._dailyCount = config.daily_count ?? 7;
     this._hourlyCount = config.hourly_count ?? 12;
+    // "visible" = how many columns show at once; when it is smaller than the
+    // total count the strip auto-rotates through the rest.
+    this._hourlyVisible = clampInt(config.hourly_visible ?? this._hourlyCount, 1, this._hourlyCount);
+    this._dailyVisible = clampInt(config.daily_visible ?? this._dailyCount, 1, this._dailyCount);
+    this._scrollInterval = Math.max(1, Number(config.scroll_interval) || 4);
+    this._hourlyPage = 0;
+    this._dailyPage = 0;
     // width/height are optional. When omitted the card fills its dashboard
     // cell, so it can be freely resized (e.g. drag-resized in a Sections
     // dashboard). Set explicit px to pin it to a fixed size instead.
@@ -161,6 +188,8 @@ class GlanceWeatherCard extends HTMLElement {
     // entity changed -> need a fresh subscription
     this._unsubscribe();
     this._buildSkeleton();
+    this._applySizeVars();
+    this._setupScroll();
     if (this._hass) {
       this._subscribeForecasts();
       this._update();
@@ -184,6 +213,50 @@ class GlanceWeatherCard extends HTMLElement {
       clearInterval(this._healthTimer);
       this._healthTimer = null;
     }
+    this._clearScroll();
+  }
+
+  // Push per-element size overrides from config onto the host as CSS variables.
+  _applySizeVars() {
+    for (const [key, cssVar] of Object.entries(SIZE_VARS)) {
+      const v = this.config[key];
+      if (v === undefined || v === null || v === "" || isNaN(v)) this.style.removeProperty(cssVar);
+      else this.style.setProperty(cssVar, `${Number(v)}px`);
+    }
+  }
+
+  _clearScroll() {
+    if (this._hourlyTimer) clearInterval(this._hourlyTimer);
+    if (this._dailyTimer) clearInterval(this._dailyTimer);
+    this._hourlyTimer = null;
+    this._dailyTimer = null;
+  }
+
+  // Auto-rotate a strip when it shows fewer columns than its total count.
+  _setupScroll() {
+    this._clearScroll();
+    const step = this._scrollInterval * 1000;
+    if (this._hourlyVisible < this._hourlyCount) {
+      this._hourlyTimer = setInterval(() => {
+        const pages = Math.ceil(this._hourlyCount / this._hourlyVisible);
+        this._hourlyPage = (this._hourlyPage + 1) % pages;
+        this._renderHourly();
+      }, step);
+    }
+    if (this._dailyVisible < this._dailyCount) {
+      this._dailyTimer = setInterval(() => {
+        const pages = Math.ceil(this._dailyCount / this._dailyVisible);
+        this._dailyPage = (this._dailyPage + 1) % pages;
+        this._renderDaily();
+      }, step);
+    }
+  }
+
+  // Start index of the visible window for a given page (full windows, clamped).
+  _windowStart(len, visible, page) {
+    const pages = Math.max(1, Math.ceil(len / visible));
+    const start = (page % pages) * visible;
+    return Math.min(start, Math.max(0, len - visible));
   }
 
   getCardSize() {
@@ -596,18 +669,20 @@ class GlanceWeatherCard extends HTMLElement {
           height: 50px;
           flex: 0 0 auto;
         }
-        .hero .big-icon { --mdc-icon-size: 42px; color: #cfe0f5; flex: 0 0 auto; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.5)); }
+        /* Every size below uses a CSS var (set from the card editor) with a
+           sensible default fallback, so each line is independently adjustable. */
+        .hero .big-icon { --mdc-icon-size: var(--gw-hero-icon, 42px); color: #cfe0f5; flex: 0 0 auto; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.5)); }
         .hero .tempwrap { display: flex; flex-direction: column; justify-content: center; flex: 0 0 auto; }
-        .hero .temp { font-size: 38px; font-weight: 700; line-height: 1; }
-        .hero .feels { font-size: 11px; font-weight: 600; line-height: 1.1; opacity: 0.92; margin-top: 2px; white-space: nowrap; }
+        .hero .temp { font-size: var(--gw-temp, 38px); font-weight: 700; line-height: 1; }
+        .hero .feels { font-size: var(--gw-feels, 11px); font-weight: 600; line-height: 1.1; opacity: 0.92; margin-top: 2px; white-space: nowrap; }
         .hero .feels.hidden { display: none; }
         .hero .meta { display: flex; flex-direction: column; justify-content: center; gap: 3px; min-width: 0; }
         .hero .cond {
-          font-size: 12.5px; font-weight: 600; line-height: 1.2;
+          font-size: var(--gw-cond, 12.5px); font-weight: 600; line-height: 1.2;
           white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
         }
         .hero .sub { display: flex; align-items: center; gap: 10px; }
-        .hero .hum, .hero .pcp { font-size: 12px; font-weight: 600; display: flex; align-items: center; gap: 3px; }
+        .hero .hum, .hero .pcp { font-size: var(--gw-hero-detail, 12px); font-weight: 600; display: flex; align-items: center; gap: 3px; }
         .hero .hum ha-icon, .hero .pcp ha-icon { --mdc-icon-size: 14px; }
         .hero .hum { color: ${HUMIDITY_COLOR}; }
         .hero .hum ha-icon { color: ${HUMIDITY_COLOR}; }
@@ -615,24 +690,28 @@ class GlanceWeatherCard extends HTMLElement {
         .hero .pcp.hidden { display: none; }
         .spacer { flex: 1 1 auto; }
         .label {
-          font-size: 9px; letter-spacing: 0.4px; text-transform: uppercase;
+          font-size: var(--gw-label, 9px); letter-spacing: 0.4px; text-transform: uppercase;
           font-weight: 700; opacity: 0.82; margin: 1px 0 0;
         }
         /* Strips grow to share any extra height, so stretching the card just
            gives the rows more breathing room instead of leaving dead space. */
         .row { display: grid; gap: 1px; flex: 1 1 auto; align-content: center; }
-        .row.hourly { grid-template-columns: repeat(${this._hourlyCount}, 1fr); }
-        .row.daily { grid-template-columns: repeat(${this._dailyCount}, 1fr); }
+        .row.hourly { grid-template-columns: repeat(${this._hourlyVisible}, 1fr); }
+        .row.daily { grid-template-columns: repeat(${this._dailyVisible}, 1fr); }
         .cell { display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.15; }
-        .cell ha-icon { --mdc-icon-size: 18px; color: ${DEFAULT_ICON}; margin: 1px 0; filter: drop-shadow(0 1px 1.5px rgba(0,0,0,0.5)); }
-        .cell .t1 { font-size: 10px; font-weight: 600; opacity: 0.92; }
-        .cell .t2 { font-size: 11px; font-weight: 700; }
-        .cell .lo { font-size: 10px; font-weight: 500; opacity: 0.86; }
+        .cell ha-icon { --mdc-icon-size: var(--gw-strip-icon, 18px); color: ${DEFAULT_ICON}; margin: 1px 0; filter: drop-shadow(0 1px 1.5px rgba(0,0,0,0.5)); }
+        .cell .t1 { font-weight: 600; opacity: 0.92; }
+        .cell .t2 { font-weight: 700; }
+        .row.hourly .cell .t1 { font-size: var(--gw-time, 10px); }
+        .row.daily .cell .t1 { font-size: var(--gw-day, 10px); }
+        .row.hourly .cell .t2 { font-size: var(--gw-htemp, 11px); }
+        .row.daily .cell .t2 { font-size: var(--gw-dtemp, 11px); }
+        .cell .lo { font-size: var(--gw-dlow, 10px); font-weight: 500; opacity: 0.86; }
         /* Humidity: always teal. Rain chance: always blue. Same everywhere. */
-        .cell .dh { font-size: 9px; font-weight: 700; line-height: 1.2; color: ${HUMIDITY_COLOR}; display: flex; align-items: center; gap: 2px; min-height: 11px; }
+        .cell .dh { font-size: var(--gw-metric, 9px); font-weight: 700; line-height: 1.2; color: ${HUMIDITY_COLOR}; display: flex; align-items: center; gap: 2px; min-height: 11px; }
         .cell .dh ha-icon { --mdc-icon-size: 10px; color: ${HUMIDITY_COLOR}; margin: 0; }
         .cell .dh.hidden { visibility: hidden; }
-        .cell .pop { font-size: 9px; font-weight: 700; line-height: 1.2; color: ${RAIN_COLOR}; display: flex; align-items: center; gap: 2px; min-height: 11px; }
+        .cell .pop { font-size: var(--gw-metric, 9px); font-weight: 700; line-height: 1.2; color: ${RAIN_COLOR}; display: flex; align-items: center; gap: 2px; min-height: 11px; }
         .cell .pop ha-icon { --mdc-icon-size: 10px; color: ${RAIN_COLOR}; margin: 0; }
         .cell .pop.hidden { visibility: hidden; }
         .unit { font-size: 0.55em; opacity: 0.8; vertical-align: top; }
@@ -723,9 +802,19 @@ class GlanceWeatherCard extends HTMLElement {
       pcpEl.classList.add("hidden");
     }
 
-    // ---- Hourly ----
-    const hourly = (this._forecasts.hourly || []).slice(0, this._hourlyCount);
-    root.querySelector(".row.hourly").innerHTML = hourly
+    this._renderHourly();
+    this._renderDaily();
+  }
+
+  // ---- Hourly strip (windowed for auto-scroll) ----
+  _renderHourly() {
+    if (!this._built || !this._hass) return;
+    const el = this.shadowRoot.querySelector(".row.hourly");
+    if (!el) return;
+    const pool = (this._forecasts.hourly || []).slice(0, this._hourlyCount);
+    const start = this._windowStart(pool.length, this._hourlyVisible, this._hourlyPage);
+    el.innerHTML = pool
+      .slice(start, start + this._hourlyVisible)
       .map((f) => {
         const cond = this._isNight(f.datetime) ? nightCondition(f.condition) : f.condition;
         const pop = popText(f);
@@ -740,16 +829,24 @@ class GlanceWeatherCard extends HTMLElement {
         </div>`;
       })
       .join("");
+  }
 
-    // ---- Daily ----
-    const daily = (this._forecasts.daily || []).slice(0, this._dailyCount);
-    root.querySelector(".row.daily").innerHTML = daily
-      .map((f, i) => {
+  // ---- Daily strip (windowed for auto-scroll) ----
+  _renderDaily() {
+    if (!this._built || !this._hass) return;
+    const el = this.shadowRoot.querySelector(".row.daily");
+    if (!el) return;
+    const pool = (this._forecasts.daily || []).slice(0, this._dailyCount);
+    const start = this._windowStart(pool.length, this._dailyVisible, this._dailyPage);
+    el.innerHTML = pool
+      .slice(start, start + this._dailyVisible)
+      .map((f, j) => {
         const pop = popText(f);
         const rh = humText(f);
+        // Pass the absolute index so only the real first day shows "Today".
         return `
         <div class="cell">
-          <span class="t1">${this._fmtDay(f.datetime, i)}</span>
+          <span class="t1">${this._fmtDay(f.datetime, start + j)}</span>
           <ha-icon icon="${iconFor(f.condition)}" style="color:${iconColorFor(f.condition)}"></ha-icon>
           <span class="t2">${this._round(f.temperature)}°</span>
           <span class="lo">${this._round(f.templow)}°</span>
@@ -766,29 +863,77 @@ customElements.define("glance-weather-card", GlanceWeatherCard);
 // ---- Visual config editor (GUI) ----
 // Uses HA's built-in <ha-form> with selectors, so the weather entity (and the
 // optional sensors/counts/size) are chosen from pickers instead of YAML.
+const px = (min, max) => ({ number: { min, max, mode: "box", unit_of_measurement: "px" } });
+const sizeField = (name) => ({ name, selector: px(6, 160) });
 const EDITOR_SCHEMA = [
   { name: "entity", required: true, selector: { entity: { domain: "weather" } } },
-  { name: "apparent_temperature_entity", selector: { entity: { domain: ["sensor", "number", "input_number"] } } },
-  { name: "humidity_entity", selector: { entity: { domain: ["sensor", "number", "input_number"] } } },
   {
-    name: "",
-    type: "grid",
+    name: "", type: "grid",
     schema: [
-      { name: "hourly_count", selector: { number: { min: 1, max: 24, mode: "box" } } },
-      { name: "daily_count", selector: { number: { min: 1, max: 10, mode: "box" } } },
-      { name: "width", selector: { number: { min: 100, max: 1200, mode: "box", unit_of_measurement: "px" } } },
-      { name: "height", selector: { number: { min: 100, max: 1200, mode: "box", unit_of_measurement: "px" } } },
+      { name: "apparent_temperature_entity", selector: { entity: { domain: ["sensor", "number", "input_number"] } } },
+      { name: "humidity_entity", selector: { entity: { domain: ["sensor", "number", "input_number"] } } },
+    ],
+  },
+  {
+    name: "", type: "grid",
+    schema: [
+      { name: "hourly_count", selector: { number: { min: 1, max: 48, mode: "box" } } },
+      { name: "hourly_visible", selector: { number: { min: 1, max: 48, mode: "box" } } },
+      { name: "daily_count", selector: { number: { min: 1, max: 14, mode: "box" } } },
+      { name: "daily_visible", selector: { number: { min: 1, max: 14, mode: "box" } } },
+      { name: "scroll_interval", selector: { number: { min: 1, max: 60, mode: "box", unit_of_measurement: "s" } } },
+    ],
+  },
+  {
+    name: "", type: "grid",
+    schema: [
+      { name: "width", selector: px(100, 1400) },
+      { name: "height", selector: px(100, 1400) },
+    ],
+  },
+  {
+    name: "", type: "grid",
+    schema: [
+      sizeField("hero_icon_size"),
+      sizeField("temp_size"),
+      sizeField("feels_size"),
+      sizeField("condition_size"),
+      sizeField("hero_detail_size"),
+      sizeField("label_size"),
+      sizeField("strip_icon_size"),
+      sizeField("time_size"),
+      sizeField("hourly_temp_size"),
+      sizeField("day_size"),
+      sizeField("daily_temp_size"),
+      sizeField("daily_low_size"),
+      sizeField("metric_size"),
     ],
   },
 ];
 const EDITOR_LABELS = {
   entity: "Weather entity (required)",
-  apparent_temperature_entity: "Real-feel temperature entity (optional)",
+  apparent_temperature_entity: "Real-feel entity (optional)",
   humidity_entity: "Humidity entity (optional)",
-  hourly_count: "Hourly columns",
-  daily_count: "Daily columns",
+  hourly_count: "Hourly: total (rotate through)",
+  hourly_visible: "Hourly: visible at once",
+  daily_count: "Daily: total (rotate through)",
+  daily_visible: "Daily: visible at once",
+  scroll_interval: "Auto-rotate every",
   width: "Width (blank = fill cell)",
   height: "Height (blank = fill cell)",
+  hero_icon_size: "Big weather icon",
+  temp_size: "Current temperature",
+  feels_size: "Real-feel line",
+  condition_size: "Condition text",
+  hero_detail_size: "Humidity / precip (top)",
+  label_size: "Section labels",
+  strip_icon_size: "Strip icons",
+  time_size: "Hourly time labels",
+  hourly_temp_size: "Hourly temperature",
+  day_size: "Daily day names",
+  daily_temp_size: "Daily high",
+  daily_low_size: "Daily low",
+  metric_size: "Strip rain / humidity",
 };
 
 class GlanceWeatherCardEditor extends HTMLElement {

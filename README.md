@@ -68,12 +68,23 @@ entity: weather.home   # any weather.* entity
 | Option                        | Default      | Description                                                    |
 | ----------------------------- | ------------ | ------------------------------------------------------------- |
 | `entity`                      | *(required)* | A `weather.*` entity (e.g. `weather.home`)                     |
-| `width`                       | *(fluid)*    | Card width in px. Omit to fill the dashboard cell             |
-| `height`                      | *(fluid)*    | Card height in px. Omit to fill the dashboard cell            |
-| `hourly_count`                | `12`         | Number of hourly columns                                       |
-| `daily_count`                 | `7`          | Number of daily columns                                        |
+| `width` / `height`            | *(fluid)*    | Card size in px. Omit to fill the dashboard cell              |
+| `hourly_count`                | `12`         | Total hourly entries to cycle through                          |
+| `hourly_visible`              | *(= count)*  | Hourly columns shown at once; if less than `hourly_count`, the strip auto-rotates |
+| `daily_count`                 | `7`          | Total daily entries to cycle through                           |
+| `daily_visible`               | *(= count)*  | Daily columns shown at once; if less than `daily_count`, the strip auto-rotates |
+| `scroll_interval`             | `4`          | Seconds between auto-rotations                                 |
 | `humidity_entity`             | *(unset)*    | Optional separate sensor for current humidity                  |
 | `apparent_temperature_entity` | *(unset)*    | Optional sensor for "real feel"; otherwise the weather entity's `apparent_temperature` attribute is used |
+
+**Every text and icon size is adjustable** (all optional, in px, blank = default):
+`hero_icon_size`, `temp_size`, `feels_size`, `condition_size`,
+`hero_detail_size`, `label_size`, `strip_icon_size`, `time_size`,
+`hourly_temp_size`, `day_size`, `daily_temp_size`, `daily_low_size`,
+`metric_size`. All of the above are editable from the card's **visual editor**.
+
+**Auto-scroll:** set e.g. `hourly_visible: 6` with `hourly_count: 12` to show 6
+hours at a time and rotate through all 12 (hourly and daily are independent).
 
 The hero shows a **"Feels" (real-feel) temperature** under the main temperature
 when the weather entity provides `apparent_temperature` (or you set
