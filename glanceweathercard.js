@@ -157,6 +157,7 @@ const SIZE_VARS = {
   daily_temp_size: "--gw-dtemp",
   daily_low_size: "--gw-dlow",
   metric_size: "--gw-metric",
+  section_gap: "--gw-section-gap",
 };
 
 class GlanceWeatherCard extends HTMLElement {
@@ -200,6 +201,11 @@ class GlanceWeatherCard extends HTMLElement {
     this._dailyVisible = clampInt(config.daily_visible ?? this._dailyCount, 1, this._dailyCount);
     // Seconds for one column to slide past (continuous scroll speed).
     this._scrollInterval = Math.max(0.2, Number(config.scroll_interval) || 3);
+    // Vertical gap between the two rows in 2-row mode (px).
+    this._twoRowGap =
+      config.two_row_gap == null || config.two_row_gap === ""
+        ? 8
+        : Math.max(0, Number(config.two_row_gap));
     // width/height are optional. When omitted the card fills its dashboard
     // cell, so it can be freely resized (e.g. drag-resized in a Sections
     // dashboard). Set explicit px to pin it to a fixed size instead.
@@ -417,7 +423,7 @@ class GlanceWeatherCard extends HTMLElement {
           position: relative;
           width: ${this._width ? `${this._width}px` : "100%"};
           height: ${this._height ? `${this._height}px` : "100%"};
-          min-height: ${210 + (this.config.hourly_two_rows ? 46 : 0) + (this.config.daily_two_rows ? 46 : 0)}px;
+          min-height: ${210 + (this.config.hourly_two_rows ? 46 + this._twoRowGap : 0) + (this.config.daily_two_rows ? 46 + this._twoRowGap : 0)}px;
           box-sizing: border-box;
           padding: 8px 9px;
           display: flex;
@@ -729,6 +735,8 @@ class GlanceWeatherCard extends HTMLElement {
           font-size: var(--gw-label, 9px); letter-spacing: 0.4px; text-transform: uppercase;
           font-weight: 600; opacity: 0.75; margin: 1px 0 0;
         }
+        /* Extra breathing room before the second (daily) section. */
+        .label.sec { margin-top: var(--gw-section-gap, 14px); }
         /* Each strip is a viewport (overflow hidden); the .track inside holds
            the cells and — when there are more than fit — slides continuously
            (marquee). Rows grow to share extra height. */
@@ -783,7 +791,7 @@ class GlanceWeatherCard extends HTMLElement {
         </div>
         <div class="label">Next ${this._hourlyCount} hours</div>
         <div class="row hourly${this.config.hourly_two_rows ? " tworow" : ""}"><div class="track"></div></div>
-        <div class="label">${this._dailyCount}-day</div>
+        <div class="label sec">${this._dailyCount}-day</div>
         <div class="row daily${this.config.daily_two_rows ? " tworow" : ""}"><div class="track"></div></div>
       </div>
     `;
@@ -955,6 +963,7 @@ class GlanceWeatherCard extends HTMLElement {
       track.style.display = "grid";
       track.style.gridTemplateColumns = `repeat(${cols}, minmax(0, 1fr))`;
       track.style.gridTemplateRows = "repeat(2, 1fr)";
+      track.style.rowGap = `${this._twoRowGap}px`;
       track.style.alignItems = "stretch"; // fill each row so cells don't overlap
       return;
     }
@@ -962,6 +971,7 @@ class GlanceWeatherCard extends HTMLElement {
     track.style.display = "";
     track.style.gridTemplateColumns = "";
     track.style.gridTemplateRows = "";
+    track.style.rowGap = "";
     track.style.alignItems = "";
 
     const scrolling = n > 0 && visible < n;
@@ -1082,6 +1092,8 @@ const EDITOR_SCHEMA = [
     schema: [
       { name: "hourly_two_rows", selector: { boolean: {} } },
       { name: "daily_two_rows", selector: { boolean: {} } },
+      { name: "two_row_gap", selector: px(0, 60) },
+      { name: "section_gap", selector: px(0, 80) },
       {
         name: "strip_metrics",
         selector: {
@@ -1153,6 +1165,8 @@ const EDITOR_LABELS = {
   scroll_interval: "Auto-rotate every",
   hourly_two_rows: "Hourly: 2 rows (shows all, no scroll)",
   daily_two_rows: "Daily: 2 rows (shows all, no scroll)",
+  two_row_gap: "Gap between the 2 rows",
+  section_gap: "Gap between hourly & daily",
   strip_metrics: "Strip metrics (declutter)",
   width: "Width (blank = fill cell)",
   height: "Height (blank = fill cell)",
@@ -1184,6 +1198,7 @@ const EDITOR_DEFAULTS = {
   daily_count: "7", daily_visible: "= total (all shown)",
   scroll_interval: "3 s per column",
   hourly_two_rows: "off", daily_two_rows: "off",
+  two_row_gap: "8px", section_gap: "14px",
   strip_metrics: "rain + humidity",
   width: "blank = fill cell", height: "blank = fill cell",
   show_version: "on by default",

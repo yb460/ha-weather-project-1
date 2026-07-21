@@ -96,6 +96,9 @@ takes double the height.
 `both` (rain + humidity, default), `rain`, `humidity`, or `none` (just temps).
 Handy for the denser two-row layout.
 
+**Spacing:** `two_row_gap` (px) sets the gap between the two rows in two-row
+mode; `section_gap` (px) sets the space between the hourly and daily sections.
+
 **Optional extras** (all toggles/pickers in the editor):
 
 | Option               | Description                                                         |
