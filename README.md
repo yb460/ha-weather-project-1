@@ -92,6 +92,10 @@ webviews that block CSS animations.
 showing everything at once (scrolling turns off automatically) — that strip
 takes double the height.
 
+**Declutter:** `strip_metrics` controls what each strip cell shows —
+`both` (rain + humidity, default), `rain`, `humidity`, or `none` (just temps).
+Handy for the denser two-row layout.
+
 **Optional extras** (all toggles/pickers in the editor):
 
 | Option               | Description                                                         |

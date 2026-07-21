@@ -752,7 +752,7 @@ class GlanceWeatherCard extends HTMLElement {
            when only one is present it centers. */
         /* Rain (blue) + humidity (teal) on one compact row; color tells them
            apart so no per-item icon is needed (keeps it narrow). */
-        .cell .metrics { display: flex; align-items: center; justify-content: center; gap: 4px; min-height: 12px; max-width: 100%; white-space: nowrap; }
+        .cell .metrics { display: flex; align-items: center; justify-content: center; gap: 4px; min-height: 12px; max-width: 100%; white-space: nowrap; opacity: 0.88; }
         .cell .dh, .cell .pop { font-size: var(--gw-metric, 9px); font-weight: 600; line-height: 1.2; }
         .cell .dh { color: ${HUMIDITY_COLOR}; }
         .cell .pop { color: ${RAIN_COLOR}; }
@@ -955,12 +955,14 @@ class GlanceWeatherCard extends HTMLElement {
       track.style.display = "grid";
       track.style.gridTemplateColumns = `repeat(${cols}, minmax(0, 1fr))`;
       track.style.gridTemplateRows = "repeat(2, 1fr)";
+      track.style.alignItems = "stretch"; // fill each row so cells don't overlap
       return;
     }
     // 1-row mode: clear any grid styling from a previous config.
     track.style.display = "";
     track.style.gridTemplateColumns = "";
     track.style.gridTemplateRows = "";
+    track.style.alignItems = "";
 
     const scrolling = n > 0 && visible < n;
     if (scrolling) {
@@ -1014,12 +1016,20 @@ class GlanceWeatherCard extends HTMLElement {
           <span class="t1">${this._fmtHour(f.datetime)}</span>
           <ha-icon icon="${iconFor(cond)}" style="color:${iconColorFor(cond)}"></ha-icon>
           <span class="t2">${this._round(f.temperature)}°</span>
-          <div class="metrics">
-            <span class="pop${pop ? "" : " hidden"}">${pop}</span>
-            <span class="dh${rh ? "" : " hidden"}">${rh}</span>
-          </div>
+          ${this._metricsHtml(pop, rh)}
         </div>`;
     });
+  }
+
+  // Metrics row honoring the `strip_metrics` choice (both / rain / humidity / none).
+  _metricsHtml(pop, rh) {
+    const mode = this.config.strip_metrics || "both";
+    if (mode === "none") return "";
+    const showPop = mode === "both" || mode === "rain";
+    const showHum = mode === "both" || mode === "humidity";
+    const p = showPop ? `<span class="pop${pop ? "" : " hidden"}">${pop}</span>` : "";
+    const h = showHum ? `<span class="dh${rh ? "" : " hidden"}">${rh}</span>` : "";
+    return `<div class="metrics">${p}${h}</div>`;
   }
 
   _renderDaily() {
@@ -1035,10 +1045,7 @@ class GlanceWeatherCard extends HTMLElement {
           <ha-icon icon="${iconFor(f.condition)}" style="color:${iconColorFor(f.condition)}"></ha-icon>
           <span class="t2">${this._round(f.temperature)}°</span>
           <span class="lo">${this._round(f.templow)}°</span>
-          <div class="metrics">
-            <span class="pop${pop ? "" : " hidden"}">${pop}</span>
-            <span class="dh${rh ? "" : " hidden"}">${rh}</span>
-          </div>
+          ${this._metricsHtml(pop, rh)}
         </div>`;
     });
   }
@@ -1075,6 +1082,20 @@ const EDITOR_SCHEMA = [
     schema: [
       { name: "hourly_two_rows", selector: { boolean: {} } },
       { name: "daily_two_rows", selector: { boolean: {} } },
+      {
+        name: "strip_metrics",
+        selector: {
+          select: {
+            mode: "dropdown",
+            options: [
+              { value: "both", label: "Rain + humidity" },
+              { value: "rain", label: "Rain only" },
+              { value: "humidity", label: "Humidity only" },
+              { value: "none", label: "None (just temps)" },
+            ],
+          },
+        },
+      },
     ],
   },
   {
@@ -1132,6 +1153,7 @@ const EDITOR_LABELS = {
   scroll_interval: "Auto-rotate every",
   hourly_two_rows: "Hourly: 2 rows (shows all, no scroll)",
   daily_two_rows: "Daily: 2 rows (shows all, no scroll)",
+  strip_metrics: "Strip metrics (declutter)",
   width: "Width (blank = fill cell)",
   height: "Height (blank = fill cell)",
   show_version: "Show version marker (top-left)",
@@ -1162,6 +1184,7 @@ const EDITOR_DEFAULTS = {
   daily_count: "7", daily_visible: "= total (all shown)",
   scroll_interval: "3 s per column",
   hourly_two_rows: "off", daily_two_rows: "off",
+  strip_metrics: "rain + humidity",
   width: "blank = fill cell", height: "blank = fill cell",
   show_version: "on by default",
   highlight_now: "on by default", show_today_highlow: "off",
