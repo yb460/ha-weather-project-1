@@ -417,7 +417,7 @@ class GlanceWeatherCard extends HTMLElement {
           position: relative;
           width: ${this._width ? `${this._width}px` : "100%"};
           height: ${this._height ? `${this._height}px` : "100%"};
-          min-height: 210px;
+          min-height: ${210 + (this.config.hourly_two_rows ? 46 : 0) + (this.config.daily_two_rows ? 46 : 0)}px;
           box-sizing: border-box;
           padding: 8px 9px;
           display: flex;
@@ -733,8 +733,12 @@ class GlanceWeatherCard extends HTMLElement {
            the cells and — when there are more than fit — slides continuously
            (marquee). Rows grow to share extra height. */
         .row { flex: 1 1 auto; overflow: hidden; }
+        /* A 2-row strip takes double the height and shows everything at once
+           (no scroll) — the track becomes a 2-row grid (see _renderStrip). */
+        .row.tworow { flex: 2 1 auto; }
         .track { display: flex; width: 100%; height: 100%; align-items: center; will-change: transform; }
         .track > .cell { flex: 1 1 0; min-width: 0; }
+        .row.tworow .track > .cell { flex: none; min-width: 0; }
         .cell { display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.15; overflow: hidden; }
         .cell ha-icon { --mdc-icon-size: var(--gw-strip-icon, 18px); color: ${DEFAULT_ICON}; margin: 1px 0; filter: drop-shadow(0 1px 1.5px rgba(0,0,0,0.5)); }
         .cell .t1 { font-weight: 500; opacity: 0.9; }
@@ -778,9 +782,9 @@ class GlanceWeatherCard extends HTMLElement {
           </div>
         </div>
         <div class="label">Next ${this._hourlyCount} hours</div>
-        <div class="row hourly"><div class="track"></div></div>
+        <div class="row hourly${this.config.hourly_two_rows ? " tworow" : ""}"><div class="track"></div></div>
         <div class="label">${this._dailyCount}-day</div>
-        <div class="row daily"><div class="track"></div></div>
+        <div class="row daily${this.config.daily_two_rows ? " tworow" : ""}"><div class="track"></div></div>
       </div>
     `;
     this._built = true;
@@ -934,11 +938,30 @@ class GlanceWeatherCard extends HTMLElement {
   // seamlessly), showing `visible` columns at a time. The slide is driven by a
   // JS timer (not a CSS animation) so it keeps working in embedded/kiosk
   // webviews that disable CSS animations. Otherwise it's static.
-  _renderStrip(key, rowSel, pool, visible, cellFn) {
+  _renderStrip(key, rowSel, pool, visible, twoRows, cellFn) {
     const track = this.shadowRoot.querySelector(`${rowSel} .track`);
     if (!track) return;
     const n = pool.length;
     const cells = pool.map(cellFn).join("");
+
+    // 2-row mode: show everything in a 2-row grid, no scrolling.
+    if (twoRows) {
+      this._stopMarquee(key);
+      this._marqueeSig[key] = null;
+      const cols = Math.max(1, Math.ceil(n / 2));
+      track.innerHTML = cells;
+      track.style.transform = "";
+      track.style.width = "100%";
+      track.style.display = "grid";
+      track.style.gridTemplateColumns = `repeat(${cols}, minmax(0, 1fr))`;
+      track.style.gridTemplateRows = "repeat(2, 1fr)";
+      return;
+    }
+    // 1-row mode: clear any grid styling from a previous config.
+    track.style.display = "";
+    track.style.gridTemplateColumns = "";
+    track.style.gridTemplateRows = "";
+
     const scrolling = n > 0 && visible < n;
     if (scrolling) {
       track.innerHTML = cells + cells; // duplicate for a seamless loop
@@ -981,7 +1004,7 @@ class GlanceWeatherCard extends HTMLElement {
     if (!this._built || !this._hass) return;
     const pool = (this._forecasts.hourly || []).slice(0, this._hourlyCount);
     const markNow = this.config.highlight_now !== false;
-    this._renderStrip("hourly", ".row.hourly", pool, this._hourlyVisible, (f, i) => {
+    this._renderStrip("hourly", ".row.hourly", pool, this._hourlyVisible, !!this.config.hourly_two_rows, (f, i) => {
       const cond = this._isNight(f.datetime) ? nightCondition(f.condition) : f.condition;
       const pop = popText(f);
       const rh = humText(f);
@@ -1002,7 +1025,7 @@ class GlanceWeatherCard extends HTMLElement {
   _renderDaily() {
     if (!this._built || !this._hass) return;
     const pool = (this._forecasts.daily || []).slice(0, this._dailyCount);
-    this._renderStrip("daily", ".row.daily", pool, this._dailyVisible, (f, i) => {
+    this._renderStrip("daily", ".row.daily", pool, this._dailyVisible, !!this.config.daily_two_rows, (f, i) => {
       const pop = popText(f);
       const rh = humText(f);
       // i is the index within the pool, so only the real first day is "Today".
@@ -1045,6 +1068,13 @@ const EDITOR_SCHEMA = [
       { name: "daily_count", selector: { number: { min: 1, max: 14, mode: "box" } } },
       { name: "daily_visible", selector: { number: { min: 1, max: 14, mode: "box" } } },
       { name: "scroll_interval", selector: { number: { min: 1, max: 60, mode: "box", unit_of_measurement: "s" } } },
+    ],
+  },
+  {
+    name: "", type: "grid",
+    schema: [
+      { name: "hourly_two_rows", selector: { boolean: {} } },
+      { name: "daily_two_rows", selector: { boolean: {} } },
     ],
   },
   {
@@ -1100,6 +1130,8 @@ const EDITOR_LABELS = {
   daily_count: "Daily: total (rotate through)",
   daily_visible: "Daily: visible at once",
   scroll_interval: "Auto-rotate every",
+  hourly_two_rows: "Hourly: 2 rows (shows all, no scroll)",
+  daily_two_rows: "Daily: 2 rows (shows all, no scroll)",
   width: "Width (blank = fill cell)",
   height: "Height (blank = fill cell)",
   show_version: "Show version marker (top-left)",
@@ -1129,6 +1161,7 @@ const EDITOR_DEFAULTS = {
   hourly_count: "12", hourly_visible: "= total (all shown)",
   daily_count: "7", daily_visible: "= total (all shown)",
   scroll_interval: "3 s per column",
+  hourly_two_rows: "off", daily_two_rows: "off",
   width: "blank = fill cell", height: "blank = fill cell",
   show_version: "on by default",
   highlight_now: "on by default", show_today_highlow: "off",

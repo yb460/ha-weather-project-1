@@ -85,6 +85,12 @@ entity: weather.home   # any weather.* entity
 
 **Auto-scroll:** set e.g. `hourly_visible: 6` with `hourly_count: 12` to show 6
 hours at a time and rotate through all 12 (hourly and daily are independent).
+The scroll is driven by a JS timer, so it also works inside embedded/kiosk
+webviews that block CSS animations.
+
+**Two rows:** `hourly_two_rows` / `daily_two_rows` lay a strip out in two rows,
+showing everything at once (scrolling turns off automatically) — that strip
+takes double the height.
 
 **Optional extras** (all toggles/pickers in the editor):
 
