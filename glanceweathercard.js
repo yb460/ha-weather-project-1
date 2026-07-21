@@ -167,6 +167,10 @@ class GlanceWeatherCard extends HTMLElement {
     this._unsubs = [];
     this._subscribed = false;
     this._built = false;
+    // Strip scrolling is driven by JS timers (not CSS animation) so it keeps
+    // working inside embedded/kiosk webviews that disable CSS animations.
+    this._scrollTimers = {};
+    this._marqueeSig = {};
   }
 
   // Visual (GUI) editor shown when adding/editing the card in a dashboard.
@@ -219,6 +223,8 @@ class GlanceWeatherCard extends HTMLElement {
 
   connectedCallback() {
     if (this._hass && !this._subscribed) this._subscribeForecasts();
+    // Re-render on (re)attach so the scroll timer restarts after a move.
+    if (this._built && this._hass) this._update();
   }
 
   disconnectedCallback() {
@@ -228,6 +234,9 @@ class GlanceWeatherCard extends HTMLElement {
       clearInterval(this._healthTimer);
       this._healthTimer = null;
     }
+    this._stopMarquee("hourly");
+    this._stopMarquee("daily");
+    this._marqueeSig = {};
   }
 
   // Push per-element size overrides from config onto the host as CSS variables.
@@ -657,11 +666,11 @@ class GlanceWeatherCard extends HTMLElement {
           91% { opacity: 0.9; } 92% { opacity: 0.15; }
           93% { opacity: 0.75; } 94% { opacity: 0; }
         }
-        /* Continuous strip scroll: the track holds two copies, so sliding by
-           half its width loops seamlessly. */
-        @keyframes gw-marquee { to { transform: translateX(-50%); } }
+        /* Continuous strip scroll is driven by a JS timer (see _startMarquee)
+           so it survives embedded webviews that block CSS animations. Only the
+           decorative background/alert effects honor reduced-motion. */
         @media (prefers-reduced-motion: reduce) {
-          .fx, .fx::before, .fx::after, .track, .alert { animation: none !important; }
+          .fx, .fx::before, .fx::after, .alert { animation: none !important; }
         }
         .hero {
           display: flex;
@@ -922,8 +931,10 @@ class GlanceWeatherCard extends HTMLElement {
 
   // Build a strip's track. When there are more items than fit, the cells are
   // duplicated and the track continuously slides (a real marquee, looping
-  // seamlessly), showing `visible` columns at a time. Otherwise it's static.
-  _renderStrip(rowSel, pool, visible, cellFn) {
+  // seamlessly), showing `visible` columns at a time. The slide is driven by a
+  // JS timer (not a CSS animation) so it keeps working in embedded/kiosk
+  // webviews that disable CSS animations. Otherwise it's static.
+  _renderStrip(key, rowSel, pool, visible, cellFn) {
     const track = this.shadowRoot.querySelector(`${rowSel} .track`);
     if (!track) return;
     const n = pool.length;
@@ -932,11 +943,37 @@ class GlanceWeatherCard extends HTMLElement {
     if (scrolling) {
       track.innerHTML = cells + cells; // duplicate for a seamless loop
       track.style.width = `${((2 * n) / visible) * 100}%`;
-      track.style.animation = `gw-marquee ${(n * this._scrollInterval).toFixed(2)}s linear infinite`;
+      const durationSec = n * this._scrollInterval;
+      const sig = `${n}|${visible}|${durationSec}`;
+      if (this._marqueeSig[key] !== sig) {
+        this._marqueeSig[key] = sig;
+        this._startMarquee(key, track, durationSec);
+      }
     } else {
       track.innerHTML = cells;
       track.style.width = n ? `${(n / visible) * 100}%` : "100%";
-      track.style.animation = "";
+      track.style.transform = "";
+      this._stopMarquee(key);
+      this._marqueeSig[key] = null;
+    }
+  }
+
+  _startMarquee(key, track, durationSec) {
+    this._stopMarquee(key);
+    const durMs = Math.max(2000, durationSec * 1000);
+    const start = performance.now();
+    // ~25fps is plenty for a slow ticker and cheap (a composited transform).
+    this._scrollTimers[key] = setInterval(() => {
+      const p = ((performance.now() - start) % durMs) / durMs; // 0..1
+      // Track holds two copies, so -50% == one full set (seamless loop).
+      track.style.transform = `translateX(${(-p * 50).toFixed(3)}%)`;
+    }, 40);
+  }
+
+  _stopMarquee(key) {
+    if (this._scrollTimers[key]) {
+      clearInterval(this._scrollTimers[key]);
+      this._scrollTimers[key] = null;
     }
   }
 
@@ -944,7 +981,7 @@ class GlanceWeatherCard extends HTMLElement {
     if (!this._built || !this._hass) return;
     const pool = (this._forecasts.hourly || []).slice(0, this._hourlyCount);
     const markNow = this.config.highlight_now !== false;
-    this._renderStrip(".row.hourly", pool, this._hourlyVisible, (f, i) => {
+    this._renderStrip("hourly", ".row.hourly", pool, this._hourlyVisible, (f, i) => {
       const cond = this._isNight(f.datetime) ? nightCondition(f.condition) : f.condition;
       const pop = popText(f);
       const rh = humText(f);
@@ -965,7 +1002,7 @@ class GlanceWeatherCard extends HTMLElement {
   _renderDaily() {
     if (!this._built || !this._hass) return;
     const pool = (this._forecasts.daily || []).slice(0, this._dailyCount);
-    this._renderStrip(".row.daily", pool, this._dailyVisible, (f, i) => {
+    this._renderStrip("daily", ".row.daily", pool, this._dailyVisible, (f, i) => {
       const pop = popText(f);
       const rh = humText(f);
       // i is the index within the pool, so only the real first day is "Today".
