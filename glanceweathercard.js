@@ -930,14 +930,32 @@ class GlanceWeatherCard extends HTMLElement {
     }
     toggle(".aqi", aqiOk);
 
-    // Weather-alert banner from an entity (active when it's not an "off" state).
+    // Weather-alert banner from an entity. Supports both styles in the wild:
+    // on/off binary sensors, and count-style sensors (e.g. NWS Alerts, whose
+    // state is the number of active alerts and details live in attributes).
     const alertS = cfg.alert_entity && this._hass.states[cfg.alert_entity];
-    const off = ["off", "unknown", "unavailable", "none", "0", "", "no"];
-    const active = alertS && !off.includes(String(alertS.state).toLowerCase());
-    if (active) {
-      root.querySelector(".alertval").textContent =
-        alertS.attributes.event || alertS.attributes.friendly_name || alertS.state;
+    let active = false;
+    let text = "";
+    if (alertS) {
+      const state = String(alertS.state).toLowerCase();
+      const off = ["off", "unknown", "unavailable", "none", "0", "", "no"];
+      const count = Number(alertS.state);
+      const isCount = !isNaN(count) && String(alertS.state).trim() !== "";
+      active = isCount ? count > 0 : !off.includes(state);
+      if (active) {
+        const a = alertS.attributes || {};
+        // Some integrations (e.g. NWS Alerts) expose a list of alert objects;
+        // use the first one's title/event and note if there are more.
+        const list = Array.isArray(a.alerts) ? a.alerts : null;
+        const first = list && list[0];
+        const title =
+          (first && (first.title || first.event || first.headline)) ||
+          a.title || a.event || a.headline || a.message || a.friendly_name;
+        text = title || (isCount ? `${count} active alert${count === 1 ? "" : "s"}` : alertS.state);
+        if (list && list.length > 1) text += ` (+${list.length - 1} more)`;
+      }
     }
+    if (active) root.querySelector(".alertval").textContent = text;
     toggle(".alert", active);
   }
 
