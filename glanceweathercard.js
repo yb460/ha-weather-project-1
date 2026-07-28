@@ -930,17 +930,21 @@ class GlanceWeatherCard extends HTMLElement {
     }
     toggle(".aqi", aqiOk);
 
-    // Weather-alert banner from an entity. Supports both styles in the wild:
-    // on/off binary sensors, and count-style sensors (e.g. NWS Alerts, whose
-    // state is the number of active alerts and details live in attributes).
+    // Weather-alert banner from an entity. Supports the styles seen in the
+    // wild: on/off binary sensors, count-style sensors (e.g. NWS Alerts,
+    // whose state is the number of active alerts and details live in
+    // attributes), and template sensors whose *state itself* is the alert
+    // text (e.g. "Flood Watch • Severe Thunderstorm Watch").
     const alertS = cfg.alert_entity && this._hass.states[cfg.alert_entity];
     let active = false;
     let text = "";
     if (alertS) {
-      const state = String(alertS.state).toLowerCase();
+      const rawState = String(alertS.state);
+      const state = rawState.toLowerCase();
       const off = ["off", "unknown", "unavailable", "none", "0", "", "no"];
+      const generic = ["on", "true", "yes", "triggered", "detected", "active", "alert"];
       const count = Number(alertS.state);
-      const isCount = !isNaN(count) && String(alertS.state).trim() !== "";
+      const isCount = !isNaN(count) && rawState.trim() !== "";
       active = isCount ? count > 0 : !off.includes(state);
       if (active) {
         const a = alertS.attributes || {};
@@ -948,9 +952,14 @@ class GlanceWeatherCard extends HTMLElement {
         // use the first one's title/event and note if there are more.
         const list = Array.isArray(a.alerts) ? a.alerts : null;
         const first = list && list[0];
+        // A non-count, non-generic state (e.g. a template sensor whose state
+        // IS the alert text) is the most specific source, so it's checked
+        // before attributes.friendly_name — which every entity has and would
+        // otherwise always win and mask the real content.
+        const stateText = !isCount && !generic.includes(state) ? alertS.state : null;
         const title =
           (first && (first.title || first.event || first.headline)) ||
-          a.title || a.event || a.headline || a.message || a.friendly_name;
+          a.title || a.event || a.headline || a.message || stateText || a.friendly_name;
         text = title || (isCount ? `${count} active alert${count === 1 ? "" : "s"}` : alertS.state);
         if (list && list.length > 1) text += ` (+${list.length - 1} more)`;
       }
